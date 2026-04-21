@@ -163,6 +163,11 @@ export default function ChatArea() {
   const [sending, setSending] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [meta, setMeta] = useState({ notes: [], tags: [], transfers: [] })
+  const [crm, setCrm] = useState(null)
+  const [crmLoading, setCrmLoading] = useState(false)
+  const [crmSaving, setCrmSaving] = useState(false)
+  const [crmError, setCrmError] = useState('')
+  const [crmUsers, setCrmUsers] = useState([])
   const [noteText, setNoteText] = useState('')
   const [tagText, setTagText] = useState('')
   const [metaLoading, setMetaLoading] = useState(false)
@@ -215,6 +220,21 @@ export default function ChatArea() {
     setMeta(data || { notes: [], tags: [], transfers: [] })
   }
 
+  const loadCrm = async () => {
+    if (!conv?.contact?.id) return
+    setCrmLoading(true)
+    setCrmError('')
+    try {
+      const { data } = await api.get(`/contacts/${conv.contact.id}/crm/details`)
+      setCrm(data || null)
+    } catch (err) {
+      setCrmError(err.response?.data?.detail || 'Nao foi possivel carregar o CRM.')
+      setCrm(null)
+    } finally {
+      setCrmLoading(false)
+    }
+  }
+
   const loadQuickReplies = async () => {
     try {
       const { data } = await api.get('/quick-replies', {
@@ -242,8 +262,20 @@ export default function ChatArea() {
 
   useEffect(() => {
     if (!activeId) return
+    loadCrm()
+  }, [activeId, conv?.contact?.id])
+
+  useEffect(() => {
+    if (!activeId) return
     loadQuickReplies()
   }, [activeId, conv?.sector_id])
+
+  useEffect(() => {
+    if (!user || user.role === 'agent') return
+    api.get('/users')
+      .then(({ data }) => setCrmUsers(Array.isArray(data) ? data.filter((item) => item.is_active) : []))
+      .catch(() => setCrmUsers([]))
+  }, [user])
 
   useEffect(() => {
     const handleMetaChange = (event) => {
@@ -403,6 +435,52 @@ export default function ChatArea() {
     await reloadMeta()
   }
 
+  const handleSaveCrm = async (e) => {
+    e.preventDefault()
+    if (!crm?.contact?.id) return
+    setCrmSaving(true)
+    setCrmError('')
+    try {
+      const payload = {
+        name: crm.contact.name || '',
+        company: crm.contact.company || null,
+        origin: crm.contact.origin || null,
+        stage: crm.contact.stage || null,
+        notes: crm.contact.notes || null,
+        responsible_user_id: crm.contact.responsible_user_id || null,
+      }
+      const { data } = await api.patch(`/contacts/${crm.contact.id}/crm`, payload)
+      setCrm(data)
+      if (conv?.contact?.id === crm.contact.id) {
+        useChatStore.getState().updateConversation(activeId, {
+          contact: {
+            ...conv.contact,
+            name: data.contact?.name || crm.contact.name,
+            company: data.contact?.company || crm.contact.company,
+            origin: data.contact?.origin || crm.contact.origin,
+            stage: data.contact?.stage || crm.contact.stage,
+            notes: data.contact?.notes || crm.contact.notes,
+            responsible_user_id: data.contact?.responsible_user_id || crm.contact.responsible_user_id,
+          },
+        })
+      }
+    } catch (err) {
+      setCrmError(err.response?.data?.detail || 'Erro ao salvar CRM')
+    } finally {
+      setCrmSaving(false)
+    }
+  }
+
+  const handleTriaging = async () => {
+    if (!activeId) return
+    try {
+      await api.post(`/conversations/${activeId}/triage`)
+      await loadCrm()
+    } catch (err) {
+      setCrmError(err.response?.data?.detail || 'Nao foi possivel executar a triagem.')
+    }
+  }
+
   const handleQuickReplyPick = (reply) => {
     const resolved = applyReplyVariables(reply.content, conv, user)
     setText((current) => {
@@ -556,7 +634,123 @@ export default function ChatArea() {
       </div>
 
       <div className="border-b border-surface bg-surface-1 px-6 py-4">
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-4">
+          <div className="xl:col-span-1 space-y-3">
+            <div className="flex items-center justify-between gap-2 text-xs text-muted">
+              <span>CRM do contato</span>
+              <button
+                type="button"
+                onClick={handleTriaging}
+                className="text-brand-400 hover:text-brand-300 transition-colors"
+              >
+                Reexecutar triagem
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCrm} className="space-y-3 rounded-2xl border border-surface bg-surface-2 p-3">
+              <input
+                value={crm?.contact?.name || ''}
+                onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), name: e.target.value } }))}
+                placeholder="Nome do contato"
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
+              />
+              <input
+                value={crm?.contact?.company || ''}
+                onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), company: e.target.value } }))}
+                placeholder="Empresa"
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
+              />
+              <input
+                value={crm?.contact?.origin || ''}
+                onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), origin: e.target.value } }))}
+                placeholder="Origem"
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
+              />
+              <input
+                value={crm?.contact?.stage || ''}
+                onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), stage: e.target.value } }))}
+                placeholder="Estagio"
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
+              />
+              {user?.role !== 'agent' && crmUsers.length > 0 && (
+                <select
+                  value={crm?.contact?.responsible_user_id || ''}
+                  onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), responsible_user_id: e.target.value } }))}
+                  className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+                >
+                  <option value="">Responsavel atual</option>
+                  {crmUsers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <textarea
+                value={crm?.contact?.notes || ''}
+                onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), notes: e.target.value } }))}
+                rows={3}
+                placeholder="Notas do contato"
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 resize-none"
+              />
+              {crmError && <p className="text-[11px] text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{crmError}</p>}
+              <button
+                type="submit"
+                disabled={crmSaving || crmLoading}
+                className="w-full rounded-lg bg-brand-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-500 disabled:opacity-50"
+              >
+                {crmSaving ? 'Salvando...' : 'Salvar CRM'}
+              </button>
+            </form>
+
+            <div className="rounded-2xl border border-surface bg-surface-2 p-3">
+              <div className="flex items-center gap-2 mb-2 text-xs text-muted">
+                <History className="w-3.5 h-3.5" />
+                Historico consolidado
+              </div>
+              {crmLoading ? (
+                <div className="text-xs text-muted">Carregando CRM...</div>
+              ) : (
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Conversas</span>
+                    <span className="text-white">{crm?.summary?.total_conversations ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Abertas</span>
+                    <span className="text-white">{crm?.summary?.open_conversations ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Finalizadas</span>
+                    <span className="text-white">{crm?.summary?.finished_conversations ?? 0}</span>
+                  </div>
+                  <div className="text-[11px] text-muted pt-1">
+                    Ultimo toque: {crm?.summary?.last_touched_at ? format(new Date(crm.summary.last_touched_at), 'dd/MM HH:mm') : 'sem registro'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-surface bg-surface-2 p-3">
+              <div className="flex items-center gap-2 mb-2 text-xs text-muted">
+                <History className="w-3.5 h-3.5" />
+                Ultimas conversas
+              </div>
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {(crm?.history || []).map((item) => (
+                  <div key={item.id} className="rounded-xl border border-surface bg-surface-1 px-3 py-2">
+                    <p className="text-white text-[11px] font-medium truncate">{item.sector_name || 'Sem setor'}</p>
+                    <p className="text-[10px] text-muted">{item.status} · {item.agent_name || 'Sem atendente'}</p>
+                    <p className="text-[10px] text-muted">{item.started_at ? format(new Date(item.started_at), 'dd/MM HH:mm') : ''}</p>
+                  </div>
+                ))}
+                {(crm?.history || []).length === 0 && !crmLoading && (
+                  <p className="text-xs text-muted">Nenhuma conversa anterior encontrada.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="xl:col-span-1">
             <div className="flex items-center gap-2 mb-3 text-xs text-muted">
               <Tag className="w-3.5 h-3.5" />

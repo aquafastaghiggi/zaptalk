@@ -16,11 +16,13 @@ router = APIRouter(prefix="/sectors", tags=["sectors"])
 class SectorCreate(BaseModel):
     name: str
     description: str | None = None
+    routing_keywords: str | None = None
 
 
 class SectorUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    routing_keywords: str | None = None
     is_active: bool | None = None
 
 
@@ -28,6 +30,7 @@ class SectorOut(BaseModel):
     id: str
     name: str
     description: str | None = None
+    routing_keywords: str | None = None
     is_active: bool
     model_config = {"from_attributes": True}
 

@@ -11,6 +11,10 @@ class ContactOut(BaseModel):
     phone: str
     name: Optional[str] = None
     profile_picture: Optional[str] = None
+    company: Optional[str] = None
+    origin: Optional[str] = None
+    stage: Optional[str] = None
+    responsible_user_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -19,6 +23,7 @@ class SectorOut(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+    routing_keywords: Optional[str] = None
     is_active: bool
 
     model_config = {"from_attributes": True}

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
+import QRCode from 'qrcode'
 import {
   Users, Building2, Smartphone, Plus, RefreshCw, QrCode,
-  CheckCircle, XCircle, Loader2, ChevronLeft, Eye, EyeOff, ClipboardList, Search, MessageSquarePlus, Trash2
+  CheckCircle, XCircle, Loader2, ChevronLeft, Eye, EyeOff, ClipboardList, Search, MessageSquarePlus, Trash2,
+  BarChart3, Download, CalendarDays, TrendingUp, Sparkles
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
@@ -12,8 +14,10 @@ const TABS = [
   { key: 'users', label: 'Atendentes', icon: Users },
   { key: 'sectors', label: 'Setores', icon: Building2 },
   { key: 'quick_replies', label: 'Respostas', icon: MessageSquarePlus },
+  { key: 'reports', label: 'Relatorios', icon: BarChart3 },
   { key: 'instances', label: 'WhatsApp', icon: Smartphone },
   { key: 'audit', label: 'Auditoria', icon: ClipboardList },
+  { key: 'ai', label: 'IA', icon: Sparkles, badge: 'Em breve' },
 ]
 
 function Badge({ children, color = 'gray' }) {
@@ -330,6 +334,7 @@ function SectorsTab({ sectors, reload }) {
   const [editingSector, setEditingSector] = useState(null)
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
+  const [keywords, setKeywords] = useState('')
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState('')
 
@@ -337,6 +342,7 @@ function SectorsTab({ sectors, reload }) {
     setEditingSector(null)
     setName('')
     setDesc('')
+    setKeywords('')
     setModal(true)
   }
 
@@ -344,6 +350,7 @@ function SectorsTab({ sectors, reload }) {
     setEditingSector(sector)
     setName(sector.name || '')
     setDesc(sector.description || '')
+    setKeywords(sector.routing_keywords || '')
     setModal(true)
   }
 
@@ -351,7 +358,7 @@ function SectorsTab({ sectors, reload }) {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = { name, description: desc || null }
+      const payload = { name, description: desc || null, routing_keywords: keywords || null }
       if (editingSector) {
         await api.patch(`/sectors/${editingSector.id}`, payload)
       } else {
@@ -404,8 +411,10 @@ function SectorsTab({ sectors, reload }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm text-white font-medium">{s.name}</p>
                 <Badge color={s.is_active ? 'green' : 'red'}>{s.is_active ? 'Ativo' : 'Inativo'}</Badge>
+                {s.routing_keywords && <Badge color="blue">Triagem</Badge>}
               </div>
               {s.description && <p className="text-xs text-muted">{s.description}</p>}
+              {s.routing_keywords && <p className="text-[11px] text-slate-400 mt-1">Palavras-chave: {s.routing_keywords}</p>}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
@@ -442,6 +451,13 @@ function SectorsTab({ sectors, reload }) {
           <form onSubmit={handleSave} className="space-y-4">
             <Input label="Nome do setor" value={name} onChange={e => setName(e.target.value)} required placeholder="ex: Suporte, Vendas..." />
             <Input label="Descricao (opcional)" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descricao curta" />
+            <Input
+              label="Palavras-chave de triagem"
+              value={keywords}
+              onChange={e => setKeywords(e.target.value)}
+              placeholder="ex: boleto, financeiro, pagamento; entrega, prazo"
+            />
+            <p className="text-[11px] text-muted -mt-2">Separe por virgula ou ponto e virgula. A Evolution vai usar isso para direcionar a conversa ao setor certo.</p>
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -815,6 +831,210 @@ function QuickRepliesTab({ sectors }) {
   )
 }
 
+function BadgeCard({ label, value, tone = 'blue' }) {
+  const tones = {
+    blue: 'text-blue-400 bg-blue-500/15',
+    green: 'text-green-400 bg-green-500/15',
+    yellow: 'text-yellow-400 bg-yellow-500/15',
+    red: 'text-red-400 bg-red-500/15',
+    slate: 'text-slate-300 bg-slate-500/15',
+  }
+
+  return (
+    <div className="bg-surface-2 border border-surface rounded-2xl p-4 min-w-0">
+      <p className="text-[11px] uppercase tracking-wide text-subtle">{label}</p>
+      <div className="flex items-center justify-between gap-3 mt-2">
+        <p className="text-2xl font-semibold text-white">{value}</p>
+        <span className={clsx('w-9 h-9 rounded-xl flex items-center justify-center', tones[tone])}>
+          <TrendingUp className="w-4 h-4" />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function ReportsTab() {
+  const [filters, setFilters] = useState({
+    date_from: '',
+    date_to: '',
+  })
+  const [draft, setDraft] = useState({
+    date_from: '',
+    date_to: '',
+  })
+  const [report, setReport] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const load = async (nextFilters = filters) => {
+    setLoading(true)
+    try {
+      const params = {}
+      if (nextFilters.date_from) params.date_from = nextFilters.date_from
+      if (nextFilters.date_to) params.date_to = nextFilters.date_to
+      const { data } = await api.get('/reports/overview', { params })
+      setReport(data)
+    } catch {
+      setReport(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const applyFilters = async (e) => {
+    e.preventDefault()
+    setFilters(draft)
+    await load(draft)
+  }
+
+  const clearFilters = async () => {
+    const next = { date_from: '', date_to: '' }
+    setDraft(next)
+    setFilters(next)
+    await load(next)
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = {}
+      if (filters.date_from) params.date_from = filters.date_from
+      if (filters.date_to) params.date_to = filters.date_to
+      const response = await api.get('/reports/export.csv', {
+        params,
+        responseType: 'blob',
+      })
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'zaptalk-relatorio.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const summary = report?.summary || {}
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={applyFilters} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Input label="Data inicial" type="date" value={draft.date_from} onChange={e => setDraft(f => ({ ...f, date_from: e.target.value }))} />
+        <Input label="Data final" type="date" value={draft.date_to} onChange={e => setDraft(f => ({ ...f, date_to: e.target.value }))} />
+        <div className="flex items-end gap-2">
+          <button
+            type="submit"
+            className="flex-1 flex items-center justify-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-2.5 rounded-lg transition-colors"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Filtrar
+          </button>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-xs px-3 py-2.5 rounded-lg border border-surface text-slate-300 hover:bg-surface-3 transition-colors"
+          >
+            Limpar
+          </button>
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            className="w-full flex items-center justify-center gap-1.5 text-xs bg-surface-2 hover:bg-surface-3 border border-surface text-slate-200 px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? 'Exportando...' : 'Exportar CSV'}
+          </button>
+        </div>
+      </form>
+
+      <div className="grid grid-cols-2 xl:grid-cols-6 gap-3">
+        <BadgeCard label="Conversas" value={summary.total_conversations ?? '-'} tone="blue" />
+        <BadgeCard label="Fila" value={summary.waiting ?? '-'} tone="yellow" />
+        <BadgeCard label="Em atendimento" value={summary.in_progress ?? '-'} tone="blue" />
+        <BadgeCard label="Finalizadas" value={summary.finished ?? '-'} tone="green" />
+        <BadgeCard label="Entrantes" value={summary.inbound_messages ?? '-'} tone="slate" />
+        <BadgeCard label="Saídas" value={summary.outbound_messages ?? '-'} tone="slate" />
+      </div>
+
+      {loading && <p className="text-xs text-muted">Carregando relatórios...</p>}
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="bg-surface-2 border border-surface rounded-2xl p-4">
+          <h3 className="text-sm font-medium text-white mb-3">Volume por dia</h3>
+          <div className="space-y-2 max-h-72 overflow-auto pr-1">
+            {(report?.by_day || []).map((row) => (
+              <div key={row.date} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
+                <span className="text-muted">{row.date}</span>
+                <span className="text-white font-medium">{row.count}</span>
+              </div>
+            ))}
+            {!(report?.by_day || []).length && !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>}
+          </div>
+        </div>
+
+        <div className="bg-surface-2 border border-surface rounded-2xl p-4">
+          <h3 className="text-sm font-medium text-white mb-3">Por agente</h3>
+          <div className="space-y-2 max-h-72 overflow-auto pr-1">
+            {(report?.by_agent || []).map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-white truncate">{row.name}</p>
+                  <p className="text-muted truncate">{row.sector || 'Sem setor'}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-white font-medium">{row.conversations}</p>
+                  <p className="text-muted">final: {row.finished}</p>
+                </div>
+              </div>
+            ))}
+            {!(report?.by_agent || []).length && !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>}
+          </div>
+        </div>
+
+        <div className="bg-surface-2 border border-surface rounded-2xl p-4">
+          <h3 className="text-sm font-medium text-white mb-3">Por setor</h3>
+          <div className="space-y-2 max-h-72 overflow-auto pr-1">
+            {(report?.by_sector || []).map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-white truncate">{row.name}</p>
+                  <p className="text-muted truncate">fila {row.waiting} · andamento {row.in_progress}</p>
+                </div>
+                <span className="text-white font-medium shrink-0">{row.conversations}</span>
+              </div>
+            ))}
+            {!(report?.by_sector || []).length && !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-surface-2 border border-surface rounded-2xl p-4">
+        <h3 className="text-sm font-medium text-white mb-3">Estagio do CRM</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-2">
+          {(report?.by_stage || []).map((row) => (
+            <div key={row.stage} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
+              <span className="text-muted truncate">{row.stage}</span>
+              <span className="text-white font-medium">{row.count}</span>
+            </div>
+          ))}
+          {!(report?.by_stage || []).length && !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function InstancesTab() {
   const [instances, setInstances] = useState([])
   const [modal, setModal] = useState(false)
@@ -823,6 +1043,68 @@ function InstancesTab() {
   const [qrModal, setQrModal] = useState(null)
   const [error, setError] = useState('')
   const [busyInstance, setBusyInstance] = useState('')
+
+  const normalizeQrSource = (value) => {
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim().replace(/\s+/g, '')
+    if (!trimmed) return null
+
+    if (trimmed.startsWith('data:image/')) {
+      return trimmed
+    }
+
+    return `data:image/png;base64,${trimmed}`
+  }
+
+  const buildBlobQrSource = (value) => {
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim().replace(/\s+/g, '')
+    if (!trimmed) return null
+
+    let base64Payload = trimmed
+    let mimeType = 'image/png'
+
+    if (trimmed.startsWith('data:')) {
+      const commaIndex = trimmed.indexOf(',')
+      if (commaIndex === -1) return null
+      const header = trimmed.slice(0, commaIndex)
+      base64Payload = trimmed.slice(commaIndex + 1)
+      const mimeMatch = header.match(/^data:([^;]+);base64$/i)
+      if (mimeMatch?.[1]) {
+        mimeType = mimeMatch[1]
+      }
+    }
+
+    try {
+      const binary = atob(base64Payload)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      const blob = new Blob([bytes], { type: mimeType })
+      return URL.createObjectURL(blob)
+    } catch {
+      return null
+    }
+  }
+
+  const buildGeneratedQrSource = async (value) => {
+    if (typeof value !== 'string' || !value.trim()) return null
+
+    try {
+      return await QRCode.toDataURL(value.trim(), {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        width: 320,
+        color: {
+          dark: '#111827',
+          light: '#ffffff',
+        },
+      })
+    } catch {
+      return null
+    }
+  }
 
   const load = async () => {
     try {
@@ -842,12 +1124,34 @@ function InstancesTab() {
     setError('')
     setCreating(true)
     try {
-      await api.post('/instances', { name: instName })
+      const normalizedName = instName.trim().toLowerCase().replace(/\s+/g, '_')
+      if (!/^[a-z][a-z0-9_]{2,29}$/.test(normalizedName)) {
+        throw new Error('Use um nome com pelo menos 3 caracteres, começando com letra e usando apenas letras, números e underscore.')
+      }
+
+      const { data } = await api.post('/instances', { name: normalizedName })
       setModal(false)
       setInstName('')
-      load()
+      await load()
+
+      const base64 = data?.base64 || data?.qrcode?.base64 || null
+      const pairingCode = data?.pairing_code || data?.pairingCode || data?.qrcode?.pairingCode || null
+      const code = data?.code || data?.qrcode?.code || null
+      const imageSource = buildBlobQrSource(base64) || normalizeQrSource(base64)
+      const generatedSource = code ? await buildGeneratedQrSource(code) : null
+      const status = data?.status || (imageSource ? 'qr' : pairingCode || code ? 'pairing_code' : 'pending')
+      setQrModal({
+        name: normalizedName,
+        base64,
+        imageSource,
+        generatedSource,
+        pairingCode,
+        code,
+        status,
+        raw: data,
+      })
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar instancia')
+      setError(err.response?.data?.detail || err.message || 'Erro ao criar instancia')
     } finally {
       setCreating(false)
     }
@@ -860,10 +1164,14 @@ function InstancesTab() {
       const base64 = data?.base64 || data?.qrcode?.base64 || null
       const pairingCode = data?.pairing_code || data?.pairingCode || data?.qrcode?.pairingCode || null
       const code = data?.code || data?.qrcode?.code || null
-      const status = data?.status || (base64 ? 'qr' : pairingCode || code ? 'pairing_code' : 'pending')
+      const imageSource = buildBlobQrSource(base64) || normalizeQrSource(base64)
+      const generatedSource = code ? await buildGeneratedQrSource(code) : null
+      const status = data?.status || (imageSource ? 'qr' : pairingCode || code ? 'pairing_code' : 'pending')
       setQrModal({
         name,
         base64,
+        imageSource,
+        generatedSource,
         pairingCode,
         code,
         status,
@@ -905,6 +1213,10 @@ function InstancesTab() {
     setBusyInstance(name)
     try {
       await api.delete(`/instances/${name}`)
+      setInstances((current) => current.filter((inst) => {
+        const instName = inst.instance?.instanceName || inst.name || inst.instanceName
+        return instName !== name
+      }))
       await load()
     } catch (err) {
       alert(err.response?.data?.detail || 'Erro ao excluir instancia')
@@ -920,6 +1232,14 @@ function InstancesTab() {
   }
 
   const statusLabel = (s) => ({ open: 'Conectado', connecting: 'Conectando', close: 'Desconectado' }[s] || s || 'Desconhecido')
+
+  useEffect(() => {
+    return () => {
+      if (qrModal?.imageSource && qrModal.imageSource.startsWith('blob:')) {
+        URL.revokeObjectURL(qrModal.imageSource)
+      }
+    }
+  }, [qrModal?.imageSource])
 
   return (
     <div>
@@ -985,18 +1305,19 @@ function InstancesTab() {
                 >
                   <XCircle className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => handleDelete(name)}
-                  disabled={busyInstance === name}
-                  className="text-muted hover:text-red-400 transition-colors p-1.5 disabled:opacity-50"
-                  title="Excluir sessão"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                onClick={() => handleDelete(name)}
+                disabled={busyInstance === name}
+                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-surface hover:border-red-400/40 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                title="Excluir sessão"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Excluir
+              </button>
             </div>
-          )
-        })}
+          </div>
+        )
+      })}
       </div>
 
       {modal && (
@@ -1005,11 +1326,11 @@ function InstancesTab() {
             <Input
               label="Nome da instancia"
               value={instName}
-              onChange={e => setInstName(e.target.value.replace(/\s/g, '_').toLowerCase())}
+              onChange={e => setInstName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').replace(/\s/g, '_'))}
               required
               placeholder="ex: principal, suporte, vendas"
             />
-            <p className="text-xs text-muted">Use apenas letras minusculas, numeros e underscores.</p>
+            <p className="text-xs text-muted">Comece com letra. Use apenas letras minusculas, numeros e underscore. Minimo 3 caracteres.</p>
             {error && <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</p>}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModal(false)} className="flex-1 text-sm text-muted border border-surface rounded-xl py-2.5 hover:bg-surface-2 transition-colors">Cancelar</button>
@@ -1053,11 +1374,11 @@ function InstancesTab() {
                 </button>
               </div>
             )}
-            {qrModal.status === 'qr' && qrModal.base64 && (
+            {qrModal.status === 'qr' && (qrModal.generatedSource || qrModal.imageSource) && (
               <>
                 <div className="bg-white p-3 rounded-xl">
                   <img
-                    src={qrModal.base64.startsWith('data:') ? qrModal.base64 : `data:image/png;base64,${qrModal.base64}`}
+                    src={qrModal.generatedSource || qrModal.imageSource}
                     alt="QR Code WhatsApp"
                     className="w-52 h-52"
                   />
@@ -1102,8 +1423,96 @@ function InstancesTab() {
                 <button onClick={() => handleQr(qrModal.name)} className="text-xs text-brand-400 hover:text-brand-300">Tentar novamente</button>
               </div>
             )}
+            {qrModal.status === 'qr' && !qrModal.generatedSource && !qrModal.imageSource && (
+              <div className="py-8 flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+                <p className="text-sm text-muted">Gerando QR Code...</p>
+              </div>
+            )}
           </div>
         </Modal>
+      )}
+    </div>
+  )
+}
+
+function AITab({ aiStatus }) {
+  const features = [
+    {
+      title: 'Resumo de conversa',
+      description: 'Resumo curto com pontos-chave, contexto e proxima acao.',
+    },
+    {
+      title: 'Sugestao de resposta',
+      description: 'Resposta assistida para o atendente revisar antes de enviar.',
+    },
+    {
+      title: 'Classificacao e triagem',
+      description: 'Assunto, urgencia, tags e setor sugerido com saida estruturada.',
+    },
+    {
+      title: 'Transferencia e sentimento',
+      description: 'Resumo para repasse e leitura de risco/insatisfacao na conversa.',
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-surface-2 border border-surface rounded-2xl p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-11 h-11 rounded-xl bg-brand-500/10 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5 text-brand-400" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-white font-medium text-base">IA</h3>
+              <Badge color={aiStatus?.enabled ? 'green' : 'yellow'}>
+                {aiStatus?.enabled ? 'Ativa' : 'Em breve'}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted mt-2 max-w-2xl">
+              O fluxo de IA ja esta preparado no backend com a Responses API da OpenAI,
+              mas permanece desativado por padrao. Para liberar, defina `AI_ENABLED=true`
+              e configure `OPENAI_API_KEY` no ambiente.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+          {features.map((feature) => (
+            <div key={feature.title} className="bg-surface-3/60 border border-surface rounded-xl p-4">
+              <p className="text-sm text-white font-medium">{feature.title}</p>
+              <p className="text-xs text-muted mt-1">{feature.description}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-surface-3/60 border border-surface rounded-xl p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted">Status</p>
+            <p className="text-sm text-white mt-1">
+              {aiStatus?.enabled ? 'Disponivel' : 'Bloqueado em producao'}
+            </p>
+          </div>
+          <div className="bg-surface-3/60 border border-surface rounded-xl p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted">Provedor</p>
+            <p className="text-sm text-white mt-1">{aiStatus?.provider || 'openai'}</p>
+          </div>
+          <div className="bg-surface-3/60 border border-surface rounded-xl p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted">Modelo base</p>
+            <p className="text-sm text-white mt-1">{aiStatus?.models?.summary || 'gpt-5.4-mini'}</p>
+          </div>
+        </div>
+      </div>
+
+      {!aiStatus?.enabled && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4">
+          <p className="text-sm text-yellow-300 font-medium">Em breve</p>
+          <p className="text-xs text-yellow-100/80 mt-1">
+            O menu ja esta pronto, mas a IA fica desligada ate voce habilitar as variaveis de ambiente.
+            Nada sera chamado por engano no ambiente atual.
+          </p>
+        </div>
       )}
     </div>
   )
@@ -1112,6 +1521,7 @@ function InstancesTab() {
 export default function AdminPage() {
   const [tab, setTab] = useState('users')
   const [sectors, setSectors] = useState([])
+  const [aiStatus, setAiStatus] = useState({ enabled: false, configured: false, reason: 'disabled', models: {} })
   const navigate = useNavigate()
   const { user } = useAuthStore()
 
@@ -1120,8 +1530,23 @@ export default function AdminPage() {
     setSectors(data)
   }
 
+  const loadAiStatus = async () => {
+    try {
+      const { data } = await api.get('/ai/status')
+      setAiStatus(data || { enabled: false, configured: false, reason: 'unknown', models: {} })
+    } catch (err) {
+      setAiStatus({
+        enabled: false,
+        configured: false,
+        reason: err.response?.status === 503 ? 'disabled' : 'unavailable',
+        models: {},
+      })
+    }
+  }
+
   useEffect(() => {
     loadSectors()
+    loadAiStatus()
   }, [])
 
   if (user && user.role === 'agent') {
@@ -1145,17 +1570,31 @@ export default function AdminPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex gap-1 bg-surface-2 p-1 rounded-xl mb-6">
-          {TABS.map(({ key, label, icon: Icon }) => (
+          {TABS.map(({ key, label, icon: Icon, badge }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
               className={clsx(
                 'flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-colors',
-                tab === key ? 'bg-surface-3 text-white' : 'text-muted hover:text-slate-300'
+                tab === key ? 'bg-surface-3 text-white' : 'text-muted hover:text-slate-300',
+                key === 'ai' && !aiStatus.enabled && 'opacity-80'
               )}
+              title={key === 'ai' && !aiStatus.enabled ? 'Em breve' : label}
             >
               <Icon className="w-4 h-4" />
               {label}
+              {badge && (
+                <span
+                  className={clsx(
+                    'text-[10px] font-medium px-2 py-0.5 rounded-full',
+                    key === 'ai' && aiStatus.enabled
+                      ? 'bg-green-500/15 text-green-300'
+                      : 'bg-yellow-500/15 text-yellow-300'
+                  )}
+                >
+                  {key === 'ai' ? (aiStatus.enabled ? 'Ativa' : 'Em breve') : badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1163,8 +1602,10 @@ export default function AdminPage() {
         {tab === 'users' && <UsersTab sectors={sectors} />}
         {tab === 'sectors' && <SectorsTab sectors={sectors} reload={loadSectors} />}
         {tab === 'quick_replies' && <QuickRepliesTab sectors={sectors} />}
+        {tab === 'reports' && <ReportsTab />}
         {tab === 'instances' && <InstancesTab />}
         {tab === 'audit' && <AuditTab />}
+        {tab === 'ai' && <AITab aiStatus={aiStatus} />}
       </div>
     </div>
   )

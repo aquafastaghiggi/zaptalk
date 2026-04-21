@@ -10,6 +10,7 @@ from app.models.conversation import Conversation, ConversationStatus
 from app.models.message import Message, MessageDirection, MessageType
 from app.services.audit_service import record_audit_log
 from app.services.conversation_service import auto_assign_conversation, conversation_payload
+from app.services.triage_service import apply_triage_for_conversation
 from app.websocket.manager import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,13 @@ async def _handle_message_upsert(db: AsyncSession, payload: dict):
     conv.unread_count += 1
     await db.flush()
 
-    if conv.status == ConversationStatus.WAITING:
+    triage_result = await apply_triage_for_conversation(
+        db,
+        conv.id,
+        text_candidates=[content, push_name, contact.name if contact else None],
+    )
+
+    if conv.status == ConversationStatus.WAITING and not triage_result.get("auto_assigned"):
         assigned = await auto_assign_conversation(db, conv.id)
         if assigned:
             conv = assigned

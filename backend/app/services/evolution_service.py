@@ -1,6 +1,7 @@
 import asyncio
 import httpx
 import logging
+from fastapi import HTTPException
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -19,18 +20,36 @@ class EvolutionService:
     # ── Instâncias ────────────────────────────────────────────────────
     async def create_instance(self, instance_name: str) -> dict:
         async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{self.base_url}/instance/create",
-                headers=self.headers,
-                json={
-                    "instanceName": instance_name,
-                    "qrcode": True,
-                    "integration": "WHATSAPP-BAILEYS",
-                },
-                timeout=30,
-            )
-            r.raise_for_status()
-            return r.json()
+            try:
+                r = await client.post(
+                    f"{self.base_url}/instance/create",
+                    headers=self.headers,
+                    json={
+                        "instanceName": instance_name,
+                        "qrcode": True,
+                        "integration": "WHATSAPP-BAILEYS",
+                    },
+                    timeout=30,
+                )
+                r.raise_for_status()
+                return r.json()
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                detail = exc.response.text.strip() or "Falha ao criar instancia"
+                if status_code == 403:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Nome da instância inválido ou não permitido pela Evolution API. "
+                            "Use letras minúsculas, números e underscore, começando com letra."
+                        ),
+                    ) from exc
+                raise HTTPException(status_code=502, detail=detail or "Falha ao criar instancia") from exc
+            except httpx.RequestError as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Nao foi possivel alcançar a Evolution API.",
+                ) from exc
 
     async def get_qrcode(self, instance_name: str) -> dict:
         last_payload: dict | None = None
@@ -186,11 +205,33 @@ class EvolutionService:
 
     async def delete_instance(self, instance_name: str) -> dict:
         async with httpx.AsyncClient() as client:
+            # Em algumas versões da Evolution a instância precisa ser
+            # desconectada antes da remoção completa. Tentamos derrubar a
+            # sessão primeiro e depois excluir.
+            for method in ("delete", "post"):
+                request = getattr(client, method)
+                try:
+                    r = await request(
+                        f"{self.base_url}/instance/logout/{instance_name}",
+                        headers=self.headers,
+                        timeout=10,
+                    )
+                    if r.status_code < 400:
+                        break
+                except httpx.RequestError:
+                    break
+
             r = await client.delete(
                 f"{self.base_url}/instance/delete/{instance_name}",
                 headers=self.headers,
                 timeout=20,
             )
+            if r.status_code == 404:
+                return {
+                    "status": "SUCCESS",
+                    "error": False,
+                    "response": {"message": "Instance already deleted"},
+                }
             r.raise_for_status()
             return r.json()
 

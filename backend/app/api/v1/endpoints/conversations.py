@@ -22,6 +22,7 @@ from app.schemas.conversation import (
 )
 from app.services import conversation_service as svc
 from app.services.quick_reply_service import list_quick_reply_filters
+from app.services.triage_service import apply_triage_for_conversation
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -120,6 +121,16 @@ async def get_history(
     _: User = Depends(get_current_user),
 ):
     return await svc.list_transfer_history(db, conversation_id)
+
+
+@router.post("/{conversation_id}/triage")
+async def triage(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await apply_triage_for_conversation(db, conversation_id, created_by=current_user)
+    return result
 
 
 @router.post("/{conversation_id}/assign")

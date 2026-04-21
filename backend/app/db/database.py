@@ -38,6 +38,8 @@ async def init_db():
         await _ensure_sqlite_conversation_priority(conn)
         await _ensure_sqlite_conversation_pin(conn)
         await _ensure_sqlite_conversation_first_response(conn)
+        await _ensure_sqlite_contact_crm_fields(conn)
+        await _ensure_sqlite_sector_triage_fields(conn)
 
 
 async def _ensure_sqlite_conversation_priority(conn):
@@ -83,3 +85,29 @@ async def _ensure_sqlite_conversation_pin(conn):
                 "ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"
             )
         )
+
+
+async def _ensure_sqlite_contact_crm_fields(conn):
+    if not engine.url.drivername.startswith("sqlite"):
+        return
+
+    result = await conn.execute(text("PRAGMA table_info(contacts)"))
+    columns = {row[1] for row in result.fetchall()}
+    if "company" not in columns:
+        await conn.execute(text("ALTER TABLE contacts ADD COLUMN company VARCHAR(120)"))
+    if "origin" not in columns:
+        await conn.execute(text("ALTER TABLE contacts ADD COLUMN origin VARCHAR(80)"))
+    if "stage" not in columns:
+        await conn.execute(text("ALTER TABLE contacts ADD COLUMN stage VARCHAR(50)"))
+    if "responsible_user_id" not in columns:
+        await conn.execute(text("ALTER TABLE contacts ADD COLUMN responsible_user_id VARCHAR"))
+
+
+async def _ensure_sqlite_sector_triage_fields(conn):
+    if not engine.url.drivername.startswith("sqlite"):
+        return
+
+    result = await conn.execute(text("PRAGMA table_info(sectors)"))
+    columns = {row[1] for row in result.fetchall()}
+    if "routing_keywords" not in columns:
+        await conn.execute(text("ALTER TABLE sectors ADD COLUMN routing_keywords VARCHAR(500)"))

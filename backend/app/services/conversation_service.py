@@ -104,6 +104,10 @@ def conversation_payload(conv: Conversation) -> dict:
             "phone": conv.contact.phone,
             "name": conv.contact.name,
             "profile_picture": conv.contact.profile_picture,
+            "company": conv.contact.company,
+            "origin": conv.contact.origin,
+            "stage": conv.contact.stage,
+            "responsible_user_id": conv.contact.responsible_user_id,
         }
         if conv.contact
         else None,
@@ -117,6 +121,15 @@ def conversation_payload(conv: Conversation) -> dict:
             "sector_id": conv.agent.sector_id,
         }
         if conv.agent
+        else None,
+        "sector": {
+            "id": conv.sector.id,
+            "name": conv.sector.name,
+            "description": conv.sector.description,
+            "routing_keywords": conv.sector.routing_keywords,
+            "is_active": conv.sector.is_active,
+        }
+        if conv.sector
         else None,
     }
 

@@ -16,6 +16,18 @@ class Settings(BaseSettings):
     EVOLUTION_API_KEY: str = ""
     BACKEND_PUBLIC_URL: str = "http://backend:8000"
 
+    AI_ENABLED: bool = False
+    OPENAI_API_KEY: str = ""
+    OPENAI_API_BASE_URL: str = "https://api.openai.com/v1"
+    AI_MODEL_SUMMARY: str = "gpt-5.4-mini"
+    AI_MODEL_SUGGEST_REPLY: str = "gpt-5.4-mini"
+    AI_MODEL_CLASSIFY: str = "gpt-5.4-mini"
+    AI_MODEL_TRANSFER_SUMMARY: str = "gpt-5.4"
+    AI_MODEL_SENTIMENT: str = "gpt-5.4-mini"
+    AI_MAX_CONTEXT_MESSAGES: int = 12
+    AI_MAX_CONTEXT_NOTES: int = 8
+    AI_MAX_CONTEXT_TRANSFERS: int = 8
+
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     ALGORITHM: str = "HS256"
     AUTO_ASSIGN_CONVERSATIONS: bool = True

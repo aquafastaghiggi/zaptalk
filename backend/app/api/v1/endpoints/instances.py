@@ -1,17 +1,22 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from app.core.deps import require_admin
 from app.db.database import get_db
 from app.services.audit_service import record_audit_log
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.services.evolution_service import EvolutionService
-from pydantic import BaseModel
 
 router = APIRouter(prefix="/instances", tags=["instances"])
 
 
 class CreateInstanceRequest(BaseModel):
-    name: str
+    name: str = Field(
+        min_length=3,
+        max_length=30,
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="Nome da instância em lowercase, começando com letra.",
+    )
 
 
 @router.get("")
