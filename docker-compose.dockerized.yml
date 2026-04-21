@@ -1,0 +1,112 @@
+services:
+  evolution_postgres:
+    image: postgres:15-alpine
+    container_name: zaptalk_evolution_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: evolution
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+
+  evolution_redis:
+    image: redis:7-alpine
+    container_name: zaptalk_evolution_redis
+    restart: unless-stopped
+    volumes:
+      - evolution_redis_data:/data
+
+  evolution_api:
+    image: atendai/evolution-api:v2.3.7
+    container_name: zaptalk_evolution
+    restart: unless-stopped
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: 8080
+      SERVER_URL: http://localhost:8080
+      PORT: 8080
+      NODE_ENV: production
+      LOG_LEVEL: INFO
+      CORS_ORIGIN: "*"
+      AUTHENTICATION_API_KEY: zaptalk_secret_key_change_me
+      DATABASE_ENABLED: "true"
+      DATABASE_CLIENT: postgres
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@evolution_postgres:5432/evolution?schema=public
+      DATABASE_URL: postgresql://evolution:evolution@evolution_postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_exchange
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution_redis:6379
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "true"
+      CACHE_LOCAL_ENABLED: "false"
+      REDIS_URL: redis://evolution_redis:6379
+      WEBHOOK_URL: http://backend:8000/api/v1/webhook/evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_DATA_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_MESSAGE_DELETE: "true"
+      DATABASE_SAVE_DATA_MESSAGE_ACK: "true"
+      DATABASE_SAVE_DATA_PRESENCE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACT_UPDATE: "true"
+      DATABASE_SAVE_DATA_GROUP_UPDATE: "true"
+      DATABASE_SAVE_DATA_QRCODE: "true"
+      CONFIG_SESSION_PHONE_CLIENT: Evolution API
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      QRCODE_LIMIT: 30
+      QRCODE_COLOR: "#198754"
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    ports:
+      - "8080:8080"
+    depends_on:
+      - evolution_postgres
+      - evolution_redis
+
+  backend:
+    build:
+      context: ./backend
+    container_name: zaptalk_backend
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: ZapTalk
+      APP_VERSION: 0.1.0
+      DEBUG: "true"
+      SECRET_KEY: troque_essa_chave_por_algo_seguro_em_producao
+      DATABASE_URL: sqlite+aiosqlite:///./zaptalk.db
+      EVOLUTION_API_URL: http://evolution_api:8080
+      EVOLUTION_API_KEY: zaptalk_secret_key_change_me
+      BACKEND_PUBLIC_URL: http://backend:8000
+      ACCESS_TOKEN_EXPIRE_MINUTES: 480
+      ALGORITHM: HS256
+      CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - evolution_api
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: zaptalk_frontend
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  evolution_instances:
+  evolution_store:
+  evolution_postgres_data:
+  evolution_redis_data:
+  frontend_node_modules:
