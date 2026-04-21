@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { MessageSquare, Loader2 } from 'lucide-react'
+import ThemeToggle from '../components/ui/ThemeToggle'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -27,6 +28,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-surface-0 flex items-center justify-center p-4">
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle />
+      </div>
       {/* Glow de fundo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-600/10 rounded-full blur-3xl" />

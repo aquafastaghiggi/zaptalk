@@ -3,11 +3,41 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --surface-0: #0f1117;
+    --surface-1: #161b22;
+    --surface-2: #1c2333;
+    --surface-3: #242d3e;
+    --surface-border: #2d3748;
+    --text-strong: #e2e8f0;
+    --text-muted: #718096;
+    --text-subtle: #a0aec0;
+  }
+
+  :root[data-theme='light'] {
+    --surface-0: #f6f8fc;
+    --surface-1: #ffffff;
+    --surface-2: #edf2f7;
+    --surface-3: #e2e8f0;
+    --surface-border: #cbd5e1;
+    --text-strong: #0f172a;
+    --text-muted: #475569;
+    --text-subtle: #64748b;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+
   * { box-sizing: border-box; }
 
   body {
-    background-color: #0f1117;
-    color: #e2e8f0;
+    background-color: var(--surface-0);
+    color: var(--text-strong);
     font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -19,11 +49,42 @@
 }
 
 @layer utilities {
-  .text-muted    { color: #718096; }
-  .text-subtle   { color: #a0aec0; }
-  .bg-surface-0  { background-color: #0f1117; }
-  .bg-surface-1  { background-color: #161b22; }
-  .bg-surface-2  { background-color: #1c2333; }
-  .bg-surface-3  { background-color: #242d3e; }
-  .border-surface { border-color: #2d3748; }
+  .text-muted    { color: var(--text-muted); }
+  .text-subtle   { color: var(--text-subtle); }
+  .bg-surface-0  { background-color: var(--surface-0); }
+  .bg-surface-1  { background-color: var(--surface-1); }
+  .bg-surface-2  { background-color: var(--surface-2); }
+  .bg-surface-3  { background-color: var(--surface-3); }
+  .border-surface { border-color: var(--surface-border); }
+}
+
+.text-white { color: var(--text-strong); }
+.text-slate-100 { color: var(--text-strong); }
+.text-slate-200 { color: #cbd5e1; }
+.text-slate-300 { color: var(--text-muted); }
+.text-slate-400 { color: #94a3b8; }
+.text-slate-500 { color: #64748b; }
+
+:root[data-theme='light'] .text-slate-200 {
+  color: #475569;
+}
+
+:root[data-theme='light'] .text-slate-300 {
+  color: #475569;
+}
+
+:root[data-theme='light'] .text-slate-400 {
+  color: #64748b;
+}
+
+:root[data-theme='light'] .text-slate-500 {
+  color: #94a3b8;
+}
+
+.placeholder-gray-600::placeholder {
+  color: #64748b;
+}
+
+:root[data-theme='light'] .placeholder-gray-600::placeholder {
+  color: #94a3b8;
 }

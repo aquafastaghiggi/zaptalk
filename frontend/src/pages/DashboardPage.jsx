@@ -6,6 +6,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuthStore } from '../stores/authStore'
 import { AlertTriangle, BarChart3, Clock3, RefreshCw, Timer, Users } from 'lucide-react'
 import clsx from 'clsx'
+import ThemeToggle from '../components/ui/ThemeToggle'
 
 function MetricCard({ label, value, hint, icon: Icon, tone = 'blue' }) {
   const tones = {
@@ -75,13 +76,16 @@ function OperationalDashboard() {
             <p className="text-[11px] uppercase tracking-wide text-subtle">Painel operacional</p>
             <h2 className="text-sm font-medium text-white">Resumo da operação em tempo real</h2>
           </div>
-          <button
-            onClick={load}
-            className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors border border-surface rounded-lg px-3 py-2"
-          >
-            <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              onClick={load}
+              className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors border border-surface rounded-lg px-3 py-2"
+            >
+              <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} />
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {error && (

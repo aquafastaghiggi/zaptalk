@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
 import QRCode from 'qrcode'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import {
   Users, Building2, Smartphone, Plus, RefreshCw, QrCode,
   CheckCircle, XCircle, Loader2, ChevronLeft, Eye, EyeOff, ClipboardList, Search, MessageSquarePlus, Trash2,
@@ -1566,6 +1567,9 @@ export default function AdminPage() {
         </button>
         <div className="w-px h-4 bg-surface" />
         <h1 className="text-white font-medium text-sm">Administracao</h1>
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
