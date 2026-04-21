@@ -10,8 +10,8 @@ function Write-Step([string]$Message) {
 }
 
 function Test-DockerVolume([string]$Name) {
-  docker volume inspect $Name *> $null
-  return $LASTEXITCODE -eq 0
+  $volumes = docker volume ls --format '{{.Name}}'
+  return $volumes -contains $Name
 }
 
 function Export-DockerVolume([string]$Name, [string]$TargetPath) {
@@ -28,6 +28,16 @@ function Export-DockerVolume([string]$Name, [string]$TargetPath) {
 
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to export volume $Name"
+  }
+}
+
+function Invoke-DockerComposeQuiet([string[]]$Arguments) {
+  $process = Start-Process -FilePath 'docker' -ArgumentList $Arguments -NoNewWindow -PassThru -Wait `
+    -RedirectStandardOutput ([System.IO.Path]::GetTempFileName()) `
+    -RedirectStandardError ([System.IO.Path]::GetTempFileName())
+
+  if ($process.ExitCode -ne 0) {
+    throw "docker $($Arguments -join ' ') failed with exit code $($process.ExitCode)"
   }
 }
 
@@ -81,7 +91,7 @@ $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath (Join-Path $sessionPath
 
 Write-Step "Pausing Docker stack"
 if (Test-Path $composeFile) {
-  docker compose -f $composeFile stop *> $null
+  Invoke-DockerComposeQuiet @('compose', '-f', $composeFile, 'stop')
 }
 
 Write-Step "Exporting Docker volumes"
@@ -100,7 +110,17 @@ foreach ($volume in $volumes) {
 
 Write-Step "Restarting stack"
 if (Test-Path $composeFile) {
-  docker compose -f $composeFile up -d *> $null
+  $existingContainers = @(docker ps -a --format '{{.Names}}')
+  $preferred = @('zaptalk_evolution', 'zaptalk_backend', 'zaptalk_frontend')
+  $toStart = $preferred | Where-Object { $existingContainers -contains $_ }
+
+  if ($toStart.Count -gt 0) {
+    docker start @toStart *> $null
+  }
+
+  if ($toStart.Count -eq 0) {
+    Invoke-DockerComposeQuiet @('compose', '-f', $composeFile, 'up', '-d')
+  }
 }
 
 Write-Host ""
