@@ -117,7 +117,12 @@ services:
 
 volumes:
   evolution_instances:
+    name: zaptalk_evolution_instances
   evolution_store:
+    name: zaptalk_evolution_store
   evolution_postgres_data:
+    name: zaptalk_evolution_postgres_data
   evolution_redis_data:
+    name: zaptalk_evolution_redis_data
   frontend_node_modules:
+    name: zaptalk_frontend_node_modules

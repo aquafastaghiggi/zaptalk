@@ -170,7 +170,31 @@ zaptalk/
 → Certifique-se de que o Terminal 1 está rodando antes de gerar o QR
 
 **Mensagens não chegam no painel**  
-→ Verifique se os 3 terminais estão rodando
+→ Verifique se os 3 terminais estão rodando  
 → Confirme que o WhatsApp está conectado (status = "open")
+
+---
+
+## Migracao para outro PC com Docker
+
+Se voce quiser levar o projeto para outra maquina e subir apenas com Docker, use:
+
+- `scripts/backup.ps1`
+- `scripts/restore.ps1`
+- `docs/roteiro-migracao-docker.md`
+
+Fluxo rapido:
+
+1. Rode o backup no PC atual.
+2. Copie o projeto e a pasta `portable-backup` para o outro PC.
+3. Instale Docker Desktop.
+4. Rode o restore.
+5. Abra `http://localhost:5173`.
+
+Os dados que realmente importam ficam em:
+
+- `backend/zaptalk.db`
+- `backend/.env`
+- volumes da Evolution / Postgres / Redis
 
 # zaptalk

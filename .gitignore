@@ -1,0 +1,4 @@
+portable-backup/
+*.tar.gz
+backend/zaptalk.db-shm
+backend/zaptalk.db-wal
