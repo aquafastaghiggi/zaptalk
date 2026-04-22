@@ -25,6 +25,7 @@ import {
   Mail,
   FileText,
   Image as ImageIcon,
+  MoreHorizontal,
 } from 'lucide-react'
 
 const QUICK_EMOJIS = ['😀', '👍', '🙏', '✅', '🔥', '💬', '📎', '⭐']
@@ -158,6 +159,135 @@ function ComposerModeButton({ active, icon: Icon, label, onClick }) {
   )
 }
 
+function ConversationActionsMenu({
+  open,
+  menuRef,
+  conv,
+  isFinished,
+  onClose,
+  onTogglePin,
+  onMarkUnread,
+  onTransfer,
+  onRequeue,
+  onReopen,
+  onPriorityChange,
+}) {
+  if (!open) return null
+
+  const priorityValue = conv?.priority ?? 0
+
+  const closeAfter = (handler) => async () => {
+    await handler?.()
+    onClose?.()
+  }
+
+  return (
+    <div ref={menuRef} className="absolute right-0 top-full z-30 mt-2 w-80 rounded-2xl border border-surface bg-surface-1 p-3 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-subtle">Mais ações</p>
+          <p className="mt-1 text-[11px] text-muted">Movimentos secundários da conversa</p>
+        </div>
+        <button type="button" onClick={onClose} className="text-[11px] text-muted hover:text-white">
+          Fechar
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={closeAfter(onTogglePin)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:border-brand-500/30 hover:text-white"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Pin className="h-3.5 w-3.5" />
+            {conv?.is_pinned ? 'Desafixar conversa' : 'Fixar conversa'}
+          </span>
+          <span className="text-[11px] text-muted">{conv?.is_pinned ? 'Ativa' : 'Disponivel'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={closeAfter(onMarkUnread)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:border-brand-500/30 hover:text-white"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Mail className="h-3.5 w-3.5" />
+            Marcar como nao lida
+          </span>
+          <span className="text-[11px] text-muted">Manter na fila</span>
+        </button>
+
+        {!isFinished && (
+          <>
+            <button
+              type="button"
+              onClick={closeAfter(onTransfer)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:border-brand-500/30 hover:text-white"
+            >
+              <span className="inline-flex items-center gap-2">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                Transferir conversa
+              </span>
+              <span className="text-[11px] text-muted">Equipe</span>
+            </button>
+
+            {conv?.status !== 'waiting' && (
+              <button
+                type="button"
+                onClick={closeAfter(onRequeue)}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:border-brand-500/30 hover:text-white"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Voltar para fila
+                </span>
+                <span className="text-[11px] text-muted">Fila do setor</span>
+              </button>
+            )}
+          </>
+        )}
+
+        {isFinished && (
+          <button
+            type="button"
+            onClick={closeAfter(onReopen)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:border-brand-500/30 hover:text-white"
+          >
+            <span className="inline-flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reabrir atendimento
+            </span>
+            <span className="text-[11px] text-muted">Restaurar</span>
+          </button>
+        )}
+
+        <div className="rounded-xl border border-surface bg-surface-2 px-3 py-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-200">Prioridade</p>
+            <span className="text-[11px] text-muted">
+              {priorityValue > 0 ? `Atual: ${priorityValue}` : 'Normal'}
+            </span>
+          </div>
+          <select
+            value={priorityValue}
+            onChange={async (e) => {
+              await onPriorityChange?.(Number(e.target.value))
+              onClose?.()
+            }}
+            className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+          >
+            <option value={0}>Normal</option>
+            <option value={1}>Baixa</option>
+            <option value={2}>Alta</option>
+            <option value={3}>Urgente</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ChatArea() {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -178,8 +308,11 @@ export default function ChatArea() {
   const [attachment, setAttachment] = useState(null)
   const [attachmentPreview, setAttachmentPreview] = useState('')
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [contextOpen, setContextOpen] = useState(true)
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
+  const actionsMenuRef = useRef(null)
 
   const {
     activeId,
@@ -271,6 +404,11 @@ export default function ChatArea() {
   }, [activeId, conv?.sector_id])
 
   useEffect(() => {
+    setActionsOpen(false)
+    setContextOpen(true)
+  }, [activeId])
+
+  useEffect(() => {
     if (!user || user.role === 'agent') return
     api.get('/users')
       .then(({ data }) => setCrmUsers(Array.isArray(data) ? data.filter((item) => item.is_active) : []))
@@ -291,6 +429,18 @@ export default function ChatArea() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs.length])
+
+  useEffect(() => {
+    if (!actionsOpen) return undefined
+    const handlePointerDown = (event) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setActionsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [actionsOpen])
 
   useEffect(() => {
     return () => {
@@ -379,9 +529,9 @@ export default function ChatArea() {
     }
   }
 
-  const handlePriorityChange = async (e) => {
+  const handlePriorityChange = async (nextPriority) => {
     if (!activeId) return
-    const priority = Number(e.target.value)
+    const priority = typeof nextPriority === 'number' ? nextPriority : Number(nextPriority?.target?.value ?? nextPriority)
     try {
       await setConversationPriority(activeId, priority)
     } catch (err) {
@@ -522,132 +672,327 @@ export default function ChatArea() {
     setAttachmentPreview(URL.createObjectURL(file))
   }
 
-  if (!activeId) return <EmptyState />
+    if (!activeId) return <EmptyState />
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-screen">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-surface bg-surface-1 flex-shrink-0">
-        <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center text-white font-medium text-sm uppercase flex-shrink-0">
-          {contactName[0]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-medium text-sm truncate">{contactName}</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-muted text-xs">{conv?.contact?.phone}</p>
-            {conv?.status && (
-              <span
-                className={clsx(
-                  'text-[10px] font-medium px-2 py-0.5 rounded-full',
-                  conv.status === 'waiting' && 'bg-yellow-500/15 text-yellow-400',
-                  conv.status === 'in_progress' && 'bg-brand-500/15 text-brand-400',
-                  conv.status === 'finished' && 'bg-slate-500/15 text-slate-400'
+    <div className="flex h-full min-w-0 overflow-hidden bg-surface-0">
+      <div className="flex min-w-0 flex-1 flex-col border-r border-surface bg-surface-0">
+        <div className="flex items-start gap-3 border-b border-surface bg-surface-1/80 px-6 py-4 backdrop-blur">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-sm font-medium uppercase text-white">
+            {contactName[0]}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">{contactName}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-xs text-muted">{conv?.contact?.phone}</p>
+              {conv?.status && (
+                <span
+                  className={clsx(
+                    'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                    conv.status === 'waiting' && 'bg-yellow-500/15 text-yellow-400',
+                    conv.status === 'in_progress' && 'bg-brand-500/15 text-brand-400',
+                    conv.status === 'finished' && 'bg-slate-500/15 text-slate-400'
+                  )}
+                >
+                  {{ waiting: 'Aguardando', in_progress: 'Em atendimento', finished: 'Finalizado' }[conv.status]}
+                </span>
+              )}
+              {conv?.agent?.name && <span className="text-[10px] text-muted">� {conv.agent.name}</span>}
+              {typeof conv?.priority === 'number' && conv.priority > 0 && (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                  Prioridade {conv.priority}
+                </span>
+              )}
+              {conv?.is_pinned && (
+                <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-medium text-brand-300">
+                  Fixada
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="relative flex shrink-0 items-center gap-2">
+            {!isFinished ? (
+              <>
+                {conv?.status === 'waiting' && (
+                  <button
+                    onClick={handleAssignMe}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs text-white transition-colors hover:bg-brand-500"
+                  >
+                    <UserCheck className="h-3.5 w-3.5" />
+                    Assumir
+                  </button>
                 )}
+                <button
+                  onClick={handleFinish}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-xs text-red-300 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-200"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Finalizar
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleReopen}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs text-white transition-colors hover:bg-brand-500"
               >
-                {{ waiting: 'Aguardando', in_progress: 'Em atendimento', finished: 'Finalizado' }[conv.status]}
-              </span>
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reabrir
+              </button>
             )}
-            {conv?.agent?.name && <span className="text-[10px] text-muted">• {conv.agent.name}</span>}
-            {typeof conv?.priority === 'number' && conv.priority > 0 && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">
-                Prioridade {conv.priority}
-              </span>
-            )}
-            {conv?.is_pinned && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-300">
-                Fixada
-              </span>
-            )}
+
+            <button
+              type="button"
+              onClick={() => setContextOpen((current) => !current)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+            >
+              {contextOpen ? 'Ocultar contexto' : 'Mostrar contexto'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActionsOpen((current) => !current)}
+              className={clsx(
+                'inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors',
+                actionsOpen
+                  ? 'border-brand-500/30 bg-brand-500/15 text-brand-300'
+                  : 'border-surface bg-surface-2 text-slate-300 hover:border-brand-500/30 hover:text-white'
+              )}
+              title="Mais acoes"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+
+            <ConversationActionsMenu
+              open={actionsOpen}
+              menuRef={actionsMenuRef}
+              conv={conv}
+              isFinished={isFinished}
+              onClose={() => setActionsOpen(false)}
+              onTogglePin={handlePin}
+              onMarkUnread={handleUnread}
+              onTransfer={() => setShowTransfer(true)}
+              onRequeue={handleRequeue}
+              onReopen={handleReopen}
+              onPriorityChange={handlePriorityChange}
+            />
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <button
-            onClick={handlePin}
-            className={clsx(
-              'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors border',
-              conv?.is_pinned
-                ? 'bg-brand-500/15 text-brand-300 border-brand-500/30'
-                : 'border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400'
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
+            {msgs.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">Nenhuma mensagem ainda</div>
+            ) : (
+              msgs.map((msg) => <MessageBubble key={msg.id} msg={msg} />)
             )}
-          >
-            <Pin className="w-3.5 h-3.5" />
-            {conv?.is_pinned ? 'Desafixar' : 'Fixar'}
-          </button>
-          <button
-            onClick={handleUnread}
-            className="flex items-center gap-1.5 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Mail className="w-3.5 h-3.5" />
-            Nao lida
-          </button>
-          {!isFinished ? (
-            <>
-              {conv?.status === 'waiting' && (
-                <button
-                  onClick={handleAssignMe}
-                  className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  <UserCheck className="w-3.5 h-3.5" /> Assumir
-                </button>
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="border-t border-surface bg-surface-1/85 px-6 py-4 backdrop-blur">
+            <div className="rounded-3xl border border-surface bg-gradient-to-br from-surface-2 via-surface-2 to-surface-1 p-4 shadow-[0_1px_0_rgba(255,255,255,0.02),0_16px_40px_rgba(0,0,0,0.12)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex gap-2">
+                  <ComposerModeButton
+                    active={composerMode === 'public'}
+                    icon={Send}
+                    label="Mensagem"
+                    onClick={() => handleSwitchComposerMode('public')}
+                  />
+                  <ComposerModeButton
+                    active={composerMode === 'internal'}
+                    icon={Mail}
+                    label="Nota interna"
+                    onClick={() => handleSwitchComposerMode('internal')}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setQuickReplyOpen((s) => !s)}
+                      disabled={composerMode !== 'public'}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Respostas rapidas
+                    </button>
+                    {quickReplyOpen && (
+                      <div className="absolute left-0 top-full z-20 mt-2 w-80 rounded-xl border border-surface bg-surface-1 p-3 shadow-xl">
+                        <input
+                          value={quickSearch}
+                          onChange={(e) => setQuickSearch(e.target.value)}
+                          placeholder="Buscar resposta..."
+                          className="mb-3 w-full rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
+                        />
+                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                          {filteredQuickReplies.length === 0 ? (
+                            <p className="text-xs text-muted">Nenhuma resposta encontrada.</p>
+                          ) : (
+                            filteredQuickReplies.map((reply) => (
+                              <button
+                                key={reply.id}
+                                type="button"
+                                onClick={() => handleQuickReplyPick(reply)}
+                                className="block w-full rounded-lg border border-surface bg-surface-2 px-3 py-2 text-left hover:bg-surface-3"
+                              >
+                                <p className="text-xs font-medium text-white">{reply.title}</p>
+                                <p className="mt-0.5 text-[11px] text-muted">/{reply.shortcut}</p>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setEmojiOpen((s) => !s)}
+                      disabled={composerMode !== 'public'}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Smile className="h-3.5 w-3.5" />
+                      Emojis
+                    </button>
+                    {emojiOpen && (
+                      <div className="absolute left-0 top-full z-20 mt-2 rounded-xl border border-surface bg-surface-1 p-3 shadow-xl">
+                        <div className="grid grid-cols-4 gap-2">
+                          {QUICK_EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleEmojiInsert(emoji)}
+                              className="h-10 w-10 rounded-lg border border-surface bg-surface-2 text-lg hover:bg-surface-3"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={composerMode === 'internal'}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Anexo
+                  </button>
+
+                  <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} />
+                </div>
+              </div>
+
+              {attachment && (
+                <div className="mt-3 rounded-xl border border-surface bg-surface-2 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-white">{attachment.name}</p>
+                      <p className="text-[11px] text-muted">{attachment.type || 'arquivo'}</p>
+                    </div>
+                    <button type="button" onClick={clearAttachment} className="text-muted transition-colors hover:text-red-400">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {attachmentPreview && attachment.type?.startsWith('image/') && (
+                    <img src={attachmentPreview} alt={attachment.name} className="mt-3 max-h-40 rounded-lg object-cover" />
+                  )}
+                  {attachmentPreview && attachment.type === 'application/pdf' && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-muted">
+                      <FileText className="h-4 w-4" />
+                      Preview de PDF pronto para envio
+                    </div>
+                  )}
+                </div>
               )}
-              <button
-                onClick={() => setShowTransfer(true)}
-                className="flex items-center gap-1.5 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
-              </button>
-              {conv?.status !== 'waiting' && (
-                <button
-                  onClick={handleRequeue}
-                  className="flex items-center gap-1.5 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Voltar para fila
-                </button>
-              )}
-              <button
-                onClick={handleFinish}
-                className="flex items-center gap-1.5 text-xs bg-surface-3 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg transition-colors border border-surface"
-              >
-                <XCircle className="w-3.5 h-3.5" /> Finalizar
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={handleReopen}
-              className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reabrir
-            </button>
-          )}
-          <select
-            value={conv?.priority ?? 0}
-            onChange={handlePriorityChange}
-            className="bg-surface-2 border border-surface rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500 transition-colors"
-            title="Prioridade da conversa"
-          >
-            <option value={0}>Normal</option>
-            <option value={1}>Baixa</option>
-            <option value={2}>Alta</option>
-            <option value={3}>Urgente</option>
-          </select>
+
+              <form onSubmit={handleSend} className="mt-3 space-y-2">
+                {composerMode === 'internal' ? (
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Escreva uma nota interna"
+                    rows={3}
+                    className="w-full resize-none rounded-xl border border-surface bg-surface-2 px-3 py-2 text-sm text-white placeholder-gray-600 transition-colors focus:outline-none focus:border-brand-500"
+                  />
+                ) : (
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === '/' && text === '' && composerMode === 'public') {
+                        e.preventDefault()
+                        setQuickReplyOpen(true)
+                      } else if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend(e)
+                      }
+                    }}
+                    placeholder="Digite sua mensagem... (Enter para enviar, / para respostas rapidas)"
+                    rows={4}
+                    className="w-full resize-none rounded-xl border border-surface bg-surface-2 px-3 py-2 text-sm text-white placeholder-gray-600 transition-colors focus:outline-none focus:border-brand-500"
+                  />
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-muted">
+                    {composerMode === 'internal'
+                      ? 'Notas internas ficam visiveis apenas para a equipe.'
+                      : 'Use mensagens publicas, respostas rapidas e anexos aqui embaixo.'}
+                  </p>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1 rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-surface-3"
+                  >
+                    {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    {composerMode === 'internal' ? 'Salvar nota' : 'Enviar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="border-b border-surface bg-surface-1 px-6 py-4">
-        <div className="grid gap-4 xl:grid-cols-4">
-          <div className="xl:col-span-1 space-y-3">
+      <aside
+        className={clsx(
+          'flex min-h-0 flex-col border-l border-surface bg-surface-1 transition-all duration-200',
+          contextOpen ? 'w-[22rem]' : 'w-0 overflow-hidden border-l-0'
+        )}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-surface px-4 py-4">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-subtle">Contexto</p>
+            <p className="mt-1 text-sm font-medium text-white">CRM, tags e historico</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setContextOpen(false)}
+            className="rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+          >
+            Ocultar
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="space-y-3 rounded-2xl border border-surface bg-surface-2 p-3">
             <div className="flex items-center justify-between gap-2 text-xs text-muted">
               <span>CRM do contato</span>
               <button
                 type="button"
                 onClick={handleTriaging}
-                className="text-brand-400 hover:text-brand-300 transition-colors"
+                className="text-brand-400 transition-colors hover:text-brand-300"
               >
                 Reexecutar triagem
               </button>
             </div>
 
-            <form onSubmit={handleSaveCrm} className="space-y-3 rounded-2xl border border-surface bg-surface-2 p-3">
+            <form onSubmit={handleSaveCrm} className="space-y-3">
               <input
                 value={crm?.contact?.name || ''}
                 onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), name: e.target.value } }))}
@@ -691,9 +1036,9 @@ export default function ChatArea() {
                 onChange={(e) => setCrm((current) => ({ ...(current || {}), contact: { ...(current?.contact || {}), notes: e.target.value } }))}
                 rows={3}
                 placeholder="Notas do contato"
-                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 resize-none"
+                className="w-full resize-none rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
               />
-              {crmError && <p className="text-[11px] text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{crmError}</p>}
+              {crmError && <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-[11px] text-red-400">{crmError}</p>}
               <button
                 type="submit"
                 disabled={crmSaving || crmLoading}
@@ -702,65 +1047,46 @@ export default function ChatArea() {
                 {crmSaving ? 'Salvando...' : 'Salvar CRM'}
               </button>
             </form>
-
-            <div className="rounded-2xl border border-surface bg-surface-2 p-3">
-              <div className="flex items-center gap-2 mb-2 text-xs text-muted">
-                <History className="w-3.5 h-3.5" />
-                Historico consolidado
-              </div>
-              {crmLoading ? (
-                <div className="text-xs text-muted">Carregando CRM...</div>
-              ) : (
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted">Conversas</span>
-                    <span className="text-white">{crm?.summary?.total_conversations ?? 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted">Abertas</span>
-                    <span className="text-white">{crm?.summary?.open_conversations ?? 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted">Finalizadas</span>
-                    <span className="text-white">{crm?.summary?.finished_conversations ?? 0}</span>
-                  </div>
-                  <div className="text-[11px] text-muted pt-1">
-                    Ultimo toque: {crm?.summary?.last_touched_at ? format(new Date(crm.summary.last_touched_at), 'dd/MM HH:mm') : 'sem registro'}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-surface bg-surface-2 p-3">
-              <div className="flex items-center gap-2 mb-2 text-xs text-muted">
-                <History className="w-3.5 h-3.5" />
-                Ultimas conversas
-              </div>
-              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                {(crm?.history || []).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-surface bg-surface-1 px-3 py-2">
-                    <p className="text-white text-[11px] font-medium truncate">{item.sector_name || 'Sem setor'}</p>
-                    <p className="text-[10px] text-muted">{item.status} · {item.agent_name || 'Sem atendente'}</p>
-                    <p className="text-[10px] text-muted">{item.started_at ? format(new Date(item.started_at), 'dd/MM HH:mm') : ''}</p>
-                  </div>
-                ))}
-                {(crm?.history || []).length === 0 && !crmLoading && (
-                  <p className="text-xs text-muted">Nenhuma conversa anterior encontrada.</p>
-                )}
-              </div>
-            </div>
           </div>
 
-          <div className="xl:col-span-1">
-            <div className="flex items-center gap-2 mb-3 text-xs text-muted">
+          <div className="rounded-2xl border border-surface bg-surface-2 p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs text-muted">
+              <History className="w-3.5 h-3.5" />
+              Historico consolidado
+            </div>
+            {crmLoading ? (
+              <div className="text-xs text-muted">Carregando CRM...</div>
+            ) : (
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Conversas</span>
+                  <span className="text-white">{crm?.summary?.total_conversations ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Abertas</span>
+                  <span className="text-white">{crm?.summary?.open_conversations ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Finalizadas</span>
+                  <span className="text-white">{crm?.summary?.finished_conversations ?? 0}</span>
+                </div>
+                <div className="pt-1 text-[11px] text-muted">
+                  Ultimo toque: {crm?.summary?.last_touched_at ? format(new Date(crm.summary.last_touched_at), 'dd/MM HH:mm') : 'sem registro'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-surface bg-surface-2 p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs text-muted">
               <Tag className="w-3.5 h-3.5" />
               Tags
             </div>
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="mb-3 flex flex-wrap gap-2">
               {meta.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-brand-500/15 text-brand-300 border border-brand-500/20"
+                  className="inline-flex items-center gap-1 rounded-full border border-brand-500/20 bg-brand-500/15 px-2 py-1 text-[10px] text-brand-300"
                 >
                   {tag.label}
                   <button onClick={() => handleRemoveTag(tag.id)} className="text-brand-300/70 hover:text-white">
@@ -775,11 +1101,11 @@ export default function ChatArea() {
                 value={tagText}
                 onChange={(e) => setTagText(e.target.value)}
                 placeholder="Nova tag"
-                className="flex-1 bg-surface-2 border border-surface rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors"
+                className="flex-1 rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors"
               />
               <button
                 type="submit"
-                className="inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-500 text-white rounded-lg px-3 py-2 text-xs transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-xs text-white transition-colors hover:bg-brand-500"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar
@@ -787,226 +1113,46 @@ export default function ChatArea() {
             </form>
           </div>
 
-          <div className="xl:col-span-2">
-            <div className="flex items-center gap-2 mb-3 text-xs text-muted">
+          <div className="rounded-2xl border border-surface bg-surface-2 p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs text-muted">
               <History className="w-3.5 h-3.5" />
-              Notas internas e transferencias
+              Notas e transferencias
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <ComposerModeButton
-                    active={composerMode === 'public'}
-                    icon={Send}
-                    label="Mensagem"
-                    onClick={() => handleSwitchComposerMode('public')}
-                  />
-                  <ComposerModeButton
-                    active={composerMode === 'internal'}
-                    icon={Mail}
-                    label="Nota interna"
-                    onClick={() => handleSwitchComposerMode('internal')}
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setQuickReplyOpen((s) => !s)}
-                      disabled={composerMode !== 'public'}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 hover:bg-surface-2"
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      Respostas rapidas
-                    </button>
-                    {quickReplyOpen && (
-                      <div className="absolute left-0 top-full z-20 mt-2 w-80 rounded-xl border border-surface bg-surface-1 p-3 shadow-xl">
-                        <input
-                          value={quickSearch}
-                          onChange={(e) => setQuickSearch(e.target.value)}
-                          placeholder="Buscar resposta..."
-                          className="mb-3 w-full rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
-                        />
-                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                          {filteredQuickReplies.length === 0 ? (
-                            <p className="text-xs text-muted">Nenhuma resposta encontrada.</p>
-                          ) : (
-                            filteredQuickReplies.map((reply) => (
-                              <button
-                                key={reply.id}
-                                type="button"
-                                onClick={() => handleQuickReplyPick(reply)}
-                                className="block w-full rounded-lg border border-surface bg-surface-2 px-3 py-2 text-left hover:bg-surface-3"
-                              >
-                                <p className="text-xs font-medium text-white">{reply.title}</p>
-                                <p className="mt-0.5 text-[11px] text-muted">/{reply.shortcut}</p>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setEmojiOpen((s) => !s)}
-                      disabled={composerMode !== 'public'}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 hover:bg-surface-2"
-                    >
-                      <Smile className="h-3.5 w-3.5" />
-                      Emojis
-                    </button>
-                    {emojiOpen && (
-                      <div className="absolute left-0 top-full z-20 mt-2 rounded-xl border border-surface bg-surface-1 p-3 shadow-xl">
-                        <div className="grid grid-cols-4 gap-2">
-                          {QUICK_EMOJIS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => handleEmojiInsert(emoji)}
-                              className="h-10 w-10 rounded-lg border border-surface bg-surface-2 text-lg hover:bg-surface-3"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={composerMode === 'internal'}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                    Anexo
-                  </button>
-
-                  <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} />
-                </div>
-
-                {attachment && (
-                  <div className="rounded-xl border border-surface bg-surface-2 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-white truncate">{attachment.name}</p>
-                        <p className="text-[11px] text-muted">{attachment.type || 'arquivo'}</p>
-                      </div>
-                      <button type="button" onClick={clearAttachment} className="text-muted hover:text-red-400">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {meta.notes.length === 0 && meta.transfers.length === 0 && (
+                <div className="text-xs text-muted">Sem notas ou historico ainda</div>
+              )}
+              {meta.notes.map((note) => (
+                <div key={note.id} className="rounded-xl border border-surface bg-surface-1 px-3 py-2">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="whitespace-pre-wrap text-xs text-slate-200">{note.content}</p>
+                      <p className="mt-1 text-[10px] text-muted">
+                        {note.created_by?.name || 'Sistema'} - {note.created_at ? format(new Date(note.created_at), 'dd/MM HH:mm') : ''}
+                      </p>
                     </div>
-                    {attachmentPreview && attachment.type?.startsWith('image/') && (
-                      <img src={attachmentPreview} alt={attachment.name} className="mt-3 max-h-40 rounded-lg object-cover" />
-                    )}
-                    {attachmentPreview && attachment.type === 'application/pdf' && (
-                      <div className="mt-3 flex items-center gap-2 rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-muted">
-                        <FileText className="h-4 w-4" />
-                        Preview de PDF pronto para envio
-                      </div>
-                    )}
+                    <button onClick={() => handleRemoveNote(note.id)} className="text-muted transition-colors hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
-
-                <form onSubmit={handleSend} className="space-y-2">
-                  {composerMode === 'internal' ? (
-                    <textarea
-                      value={noteText}
-                      onChange={(e) => setNoteText(e.target.value)}
-                      placeholder="Escreva uma nota interna"
-                      rows={3}
-                      className="w-full bg-surface-2 border border-surface rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors resize-none"
-                    />
-                  ) : (
-                    <textarea
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === '/' && text === '' && composerMode === 'public') {
-                          e.preventDefault()
-                          setQuickReplyOpen(true)
-                        } else if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSend(e)
-                        }
-                      }}
-                      placeholder="Digite sua mensagem... (Enter para enviar, / para respostas rápidas)"
-                      rows={4}
-                      className="w-full bg-surface-2 border border-surface rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors resize-none"
-                    />
-                  )}
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-1 bg-surface-2 hover:bg-surface-3 border border-surface text-slate-200 rounded-lg px-3 py-2 text-xs transition-colors"
-                  >
-                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                    {composerMode === 'internal' ? 'Salvar nota' : 'Enviar'}
-                  </button>
-                </form>
-              </div>
-
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {meta.notes.length === 0 && meta.transfers.length === 0 && (
-                  <div className="text-xs text-muted">Sem notas ou historico ainda</div>
-                )}
-                {meta.notes.map((note) => (
-                  <div key={note.id} className="bg-surface-2 border border-surface rounded-xl p-3">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-slate-200 whitespace-pre-wrap">{note.content}</p>
-                        <p className="text-[10px] text-muted mt-1">
-                          {note.created_by?.name || 'Sistema'} - {note.created_at ? format(new Date(note.created_at), 'dd/MM HH:mm') : ''}
-                        </p>
-                      </div>
-                      <button onClick={() => handleRemoveNote(note.id)} className="text-muted hover:text-red-400 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {meta.transfers.map((transfer) => (
-                  <div key={transfer.id} className="bg-surface-2 border border-surface rounded-xl p-3">
-                    <p className="text-xs text-slate-200">Transferido por {transfer.created_by?.name || 'Sistema'}</p>
-                    <p className="text-[10px] text-muted mt-1">{transfer.reason || 'Sem motivo informado'}</p>
-                    <p className="text-[10px] text-muted mt-1">
-                      {transfer.created_at ? format(new Date(transfer.created_at), 'dd/MM HH:mm') : ''}
-                    </p>
-                  </div>
-                ))}
-                {metaLoading && <div className="text-xs text-muted">Carregando contexto...</div>}
-              </div>
+                </div>
+              ))}
+              {meta.transfers.map((transfer) => (
+                <div key={transfer.id} className="rounded-xl border border-surface bg-surface-1 px-3 py-2">
+                  <p className="text-xs text-slate-200">Transferido por {transfer.created_by?.name || 'Sistema'}</p>
+                  <p className="mt-1 text-[10px] text-muted">{transfer.reason || 'Sem motivo informado'}</p>
+                  <p className="mt-1 text-[10px] text-muted">
+                    {transfer.created_at ? format(new Date(transfer.created_at), 'dd/MM HH:mm') : ''}
+                  </p>
+                </div>
+              ))}
+              {metaLoading && <div className="text-xs text-muted">Carregando contexto...</div>}
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
-        {msgs.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted text-sm">Nenhuma mensagem ainda</div>
-        ) : (
-          msgs.map((msg) => <MessageBubble key={msg.id} msg={msg} />)
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {isFinished ? (
-        <div className="px-6 py-4 border-t border-surface bg-surface-1 text-center text-muted text-sm">
-          Conversa finalizada
-        </div>
-      ) : (
-        <div className="px-6 py-4 border-t border-surface bg-surface-1 flex-shrink-0 text-xs text-muted">
-          Use a area de composicao acima para mensagens publicas, notas internas, emojis, anexos e respostas rapidas.
-        </div>
-      )}
-
-      {showTransfer && (
-        <TransferModal conversationId={activeId} onClose={() => setShowTransfer(false)} />
-      )}
+      {showTransfer && <TransferModal conversationId={activeId} onClose={() => setShowTransfer(false)} />}
     </div>
   )
 }

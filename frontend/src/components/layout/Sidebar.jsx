@@ -84,6 +84,7 @@ export default function Sidebar() {
   const [sectorId, setSectorId] = useState('')
   const [sectors, setSectors] = useState([])
   const [search, setSearch] = useState('')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [agentId, setAgentId] = useState('')
   const [tag, setTag] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -95,6 +96,7 @@ export default function Sidebar() {
   const { conversations, fetchConversations, activeId, setActive } = useChatStore()
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const advancedFilterCount = [agentId, tag, dateFrom, dateTo, pinnedOnly, unreadOnly].filter(Boolean).length
 
   useEffect(() => {
     api.get('/sectors').then(({ data }) => setSectors(Array.isArray(data) ? data : [])).catch(() => setSectors([]))
@@ -200,57 +202,88 @@ export default function Sidebar() {
           </select>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <label className="flex items-center gap-2 text-[10px] text-muted">
-            <input type="checkbox" checked={pinnedOnly} onChange={(e) => setPinnedOnly(e.target.checked)} />
-            Fixadas
-          </label>
-          <label className="flex items-center gap-2 text-[10px] text-muted">
-            <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} />
-            Nao lidas
-          </label>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-lg border border-surface bg-surface-2 px-3 py-2 text-[11px] text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+          >
+            Filtros avancados
+            <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] text-brand-300">{advancedFilterCount}</span>
+          </button>
+          {advancedFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setAgentId('')
+                setTag('')
+                setDateFrom('')
+                setDateTo('')
+                setPinnedOnly(false)
+                setUnreadOnly(false)
+              }}
+              className="text-[11px] text-muted transition-colors hover:text-white"
+            >
+              Limpar
+            </button>
+          )}
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-2">
-          <select
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-            className="w-full bg-surface-2 border border-surface rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 transition-colors"
-          >
-            <option value="">Todos os agentes</option>
-            {agents.map((agent) => (
-              <option key={agent.id} value={agent.id}>
-                {agent.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            className="w-full bg-surface-2 border border-surface rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 transition-colors"
-          >
-            <option value="">Todas as tags</option>
-            {tags.map((currentTag) => (
-              <option key={currentTag} value={currentTag}>
-                {currentTag}
-              </option>
-            ))}
-          </select>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full bg-surface-2 border border-surface rounded-lg px-3 py-2 text-[11px] text-white focus:outline-none focus:border-brand-500 transition-colors"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full bg-surface-2 border border-surface rounded-lg px-3 py-2 text-[11px] text-white focus:outline-none focus:border-brand-500 transition-colors"
-            />
+        {advancedOpen && (
+          <div className="mt-3 space-y-3 rounded-2xl border border-surface bg-surface-2 p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 rounded-lg border border-surface bg-surface-1 px-3 py-2 text-[10px] text-muted">
+                <input type="checkbox" checked={pinnedOnly} onChange={(e) => setPinnedOnly(e.target.checked)} />
+                Fixadas
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-surface bg-surface-1 px-3 py-2 text-[10px] text-muted">
+                <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} />
+                Nao lidas
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <select
+                value={agentId}
+                onChange={(e) => setAgentId(e.target.value)}
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white transition-colors focus:outline-none focus:border-brand-500"
+              >
+                <option value="">Todos os agentes</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+                className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white transition-colors focus:outline-none focus:border-brand-500"
+              >
+                <option value="">Todas as tags</option>
+                {tags.map((currentTag) => (
+                  <option key={currentTag} value={currentTag}>
+                    {currentTag}
+                  </option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-[11px] text-white transition-colors focus:outline-none focus:border-brand-500"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-[11px] text-white transition-colors focus:outline-none focus:border-brand-500"
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex border-b border-surface">
