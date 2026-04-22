@@ -145,7 +145,7 @@ async def build_reports_csv(
     date_from: date | None = None,
     date_to: date | None = None,
 ) -> str:
-    result = await db.execute(
+    query = (
         select(Conversation)
         .options(
             selectinload(Conversation.contact),
@@ -154,6 +154,12 @@ async def build_reports_csv(
         )
         .order_by(Conversation.started_at.desc())
     )
+    if date_from:
+        query = query.where(func.date(Conversation.started_at) >= date_from.isoformat())
+    if date_to:
+        query = query.where(func.date(Conversation.started_at) <= date_to.isoformat())
+
+    result = await db.execute(query)
     conversations = result.scalars().all()
 
     output = io.StringIO()
@@ -175,12 +181,6 @@ async def build_reports_csv(
     ])
 
     for conv in conversations:
-        day = _local_date(conv.started_at)
-        if date_from and day and day < date_from:
-            continue
-        if date_to and day and day > date_to:
-            continue
-
         writer.writerow([
             conv.id,
             conv.contact.name if conv.contact else "",

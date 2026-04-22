@@ -927,12 +927,15 @@ export default function ChatArea() {
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        if (e.key === '/' && text === '' && composerMode === 'public') {
+                          e.preventDefault()
+                          setQuickReplyOpen(true)
+                        } else if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
                           handleSend(e)
                         }
                       }}
-                      placeholder="Digite sua mensagem... (Enter para enviar)"
+                      placeholder="Digite sua mensagem... (Enter para enviar, / para respostas rápidas)"
                       rows={4}
                       className="w-full bg-surface-2 border border-surface rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors resize-none"
                     />

@@ -50,7 +50,9 @@ async def get_operational_dashboard(db: AsyncSession) -> dict:
             selectinload(Conversation.agent).selectinload(User.sector),
             selectinload(Conversation.sector),
         )
+        .where(Conversation.status != ConversationStatus.FINISHED)
         .order_by(Conversation.last_message_at.desc().nullslast())
+        .limit(1000)
     )
     conversations = result.scalars().all()
 

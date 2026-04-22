@@ -3,6 +3,7 @@ import api from '../services/api'
 import Sidebar from '../components/layout/Sidebar'
 import ChatArea from '../components/chat/ChatArea'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useNotification } from '../hooks/useNotification'
 import { useAuthStore } from '../stores/authStore'
 import { AlertTriangle, BarChart3, Clock3, RefreshCw, Timer, Users } from 'lucide-react'
 import clsx from 'clsx'
@@ -319,12 +320,12 @@ function OperationalDashboard() {
 
 export default function DashboardPage() {
   useWebSocket()
-  const loadMe = useAuthStore((s) => s.loadMe)
-  const user = useAuthStore((s) => s.user)
+  const { requestPermission } = useNotification()
+  const { user } = useAuthStore()
 
   useEffect(() => {
-    loadMe()
-  }, [])
+    requestPermission().catch(() => {})
+  }, [requestPermission])
 
   const canSeeDashboard = user && ['admin', 'manager'].includes(user.role)
 

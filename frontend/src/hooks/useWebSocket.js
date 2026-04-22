@@ -1,12 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
+import { useNotification } from './useNotification'
 
 export function useWebSocket() {
   const ws = useRef(null)
   const pingInterval = useRef(null)
   const { token } = useAuthStore()
   const { addMessage, addConversation, updateConversation } = useChatStore()
+
+  const { notify } = useNotification()
 
   const connect = useCallback(() => {
     if (!token) return
@@ -56,10 +59,18 @@ export function useWebSocket() {
           last_message_at: data.message.created_at,
           unread_count: data.unread_count,
         })
+        notify('Nova mensagem', {
+          body: data.message.content || '[Arquivo enviado]',
+          tag: `message-${data.conversation_id}`,
+        })
         break
 
       case 'new_conversation':
         addConversation(data)
+        notify('Nova conversa', {
+          body: data.contact?.name || data.contact?.phone || 'Novo atendimento',
+          tag: `conversation-${data.id}`,
+        })
         break
 
       case 'conversation_assigned':
@@ -71,6 +82,19 @@ export function useWebSocket() {
       case 'conversation_marked_unread':
       case 'conversation_reopened':
         updateConversation(data.conversation_id, data)
+        const eventLabels = {
+          conversation_assigned: 'Conversa atribuída',
+          conversation_transferred: 'Conversa transferida',
+          conversation_finished: 'Conversa finalizada',
+          conversation_requeued: 'Conversa retornou à fila',
+          conversation_priority_changed: 'Prioridade alterada',
+          conversation_pinned: 'Conversa fixada',
+          conversation_marked_unread: 'Marcada como não lida',
+          conversation_reopened: 'Conversa reabert',
+        }
+        notify(eventLabels[event] || 'Atualização', {
+          tag: `conversation-${data.conversation_id}`,
+        })
         window.dispatchEvent(
           new CustomEvent('zaptalk:conversation-meta-changed', {
             detail: { conversationId: data.conversation_id, event },
