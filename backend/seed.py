@@ -22,6 +22,9 @@ async def seed():
             email="admin@zaptalk.com",
             hashed_password=get_password_hash("admin123"),
             role=UserRole.ADMIN,
+            must_change_password=True,
+            setup_done=False,
+            first_login=False,
         )
         db.add(admin)
 

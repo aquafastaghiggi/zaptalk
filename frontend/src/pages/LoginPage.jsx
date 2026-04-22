@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import ThemeToggle from '../components/ui/ThemeToggle'
+import { resolvePostLoginRoute } from '../utils/onboarding'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,8 +18,8 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
-      navigate('/')
+      const user = await login(email, password)
+      navigate(resolvePostLoginRoute(user), { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao autenticar')
     } finally {

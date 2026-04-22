@@ -13,15 +13,18 @@ export const useAuthStore = create((set) => ({
     // Carrega dados do usuário
     const { data: me } = await api.get('/auth/me')
     set({ user: me })
+    return me
   },
 
   loadMe: async () => {
     try {
       const { data } = await api.get('/auth/me')
       set({ user: data })
+      return data
     } catch {
       set({ token: null, user: null })
       localStorage.removeItem('zaptalk_token')
+      return null
     }
   },
 

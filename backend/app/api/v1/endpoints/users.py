@@ -7,7 +7,7 @@ from app.db.database import get_db
 from app.core.deps import require_admin, require_manager_or_admin
 from app.core.security import get_password_hash
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate, UserOut, UserPasswordReset
+from app.schemas.user import UserCreate, UserUpdate, UserOut, UserPasswordReset, UserCreatedResponse
 from app.services.audit_service import record_audit_log
 from app.services.auth_service import create_user
 
@@ -23,13 +23,13 @@ async def list_users(
     return result.scalars().all()
 
 
-@router.post("", response_model=UserOut, status_code=201)
+@router.post("", response_model=UserCreatedResponse, status_code=201)
 async def create(
     body: UserCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    user = await create_user(db, body)
+    user, temp_password = await create_user(db, body)
     await record_audit_log(
         db,
         action="user.created",
@@ -43,7 +43,7 @@ async def create(
             "sector_id": user.sector_id,
         },
     )
-    return user
+    return UserCreatedResponse(user=user, temp_password=temp_password)
 
 
 @router.patch("/{user_id}", response_model=UserOut)
@@ -72,6 +72,8 @@ async def update_user(
 
     if password:
         user.hashed_password = get_password_hash(password)
+        user.must_change_password = True
+        user.first_login = True
 
     await db.flush()
     await record_audit_log(
@@ -103,6 +105,8 @@ async def reset_password(
         raise HTTPException(status_code=404, detail="Usuario nao encontrado")
 
     user.hashed_password = get_password_hash(body.password)
+    user.must_change_password = True
+    user.first_login = True
     await db.flush()
     await record_audit_log(
         db,

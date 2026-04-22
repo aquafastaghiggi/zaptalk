@@ -22,6 +22,9 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.AGENT)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_online: Mapped[bool] = mapped_column(Boolean, default=False)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    setup_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_login: Mapped[bool] = mapped_column(Boolean, default=True)
     sector_id: Mapped[str | None] = mapped_column(String, ForeignKey("sectors.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 

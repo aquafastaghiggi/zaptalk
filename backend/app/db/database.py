@@ -35,11 +35,41 @@ async def init_db():
     async with engine.begin() as conn:
         from app.models import user, sector, contact, conversation, message, conversation_note, conversation_tag, conversation_transfer, audit_log, quick_reply  # noqa
         await conn.run_sync(Base.metadata.create_all)
+        await _ensure_sqlite_user_onboarding_fields(conn)
         await _ensure_sqlite_conversation_priority(conn)
         await _ensure_sqlite_conversation_pin(conn)
         await _ensure_sqlite_conversation_first_response(conn)
         await _ensure_sqlite_contact_crm_fields(conn)
         await _ensure_sqlite_sector_triage_fields(conn)
+
+
+async def _ensure_sqlite_user_onboarding_fields(conn):
+    if not engine.url.drivername.startswith("sqlite"):
+        return
+
+    result = await conn.execute(text("PRAGMA table_info(users)"))
+    columns = {row[1] for row in result.fetchall()}
+    if "must_change_password" not in columns:
+        await conn.execute(
+            text(
+                "ALTER TABLE users "
+                "ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"
+            )
+        )
+    if "setup_done" not in columns:
+        await conn.execute(
+            text(
+                "ALTER TABLE users "
+                "ADD COLUMN setup_done BOOLEAN NOT NULL DEFAULT 0"
+            )
+        )
+    if "first_login" not in columns:
+        await conn.execute(
+            text(
+                "ALTER TABLE users "
+                "ADD COLUMN first_login BOOLEAN NOT NULL DEFAULT 1"
+            )
+        )
 
 
 async def _ensure_sqlite_conversation_priority(conn):

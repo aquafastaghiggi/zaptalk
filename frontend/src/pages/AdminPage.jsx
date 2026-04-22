@@ -7,7 +7,7 @@ import {
   CheckCircle, XCircle, Loader2, ChevronLeft, ClipboardList, MessageSquarePlus, Trash2,
   BarChart3, Sparkles
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import clsx from 'clsx'
 
@@ -306,7 +306,8 @@ function InstancesTab() {
 }
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState('users')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'users')
   const [sectors, setSectors] = useState([])
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -324,6 +325,13 @@ export default function AdminPage() {
     if (user && user.role === 'agent') navigate('/')
     loadSectors()
   }, [user, navigate])
+
+  useEffect(() => {
+    const nextTab = searchParams.get('tab')
+    if (nextTab && TABS.some((tab) => tab.key === nextTab)) {
+      setActiveTab(nextTab)
+    }
+  }, [searchParams])
 
   const TabIcon = TABS.find(t => t.key === activeTab)?.icon || Users
 
