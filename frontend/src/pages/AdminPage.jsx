@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import api from '../services/api'
 import QRCode from 'qrcode'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import {
-  Users, Building2, Smartphone, Plus, RefreshCw, QrCode,
+  Users, Mail, Building2, Smartphone, Plus, RefreshCw, QrCode,
   CheckCircle, XCircle, Loader2, ChevronLeft, ClipboardList, MessageSquarePlus, Trash2,
   BarChart3, Sparkles
 } from 'lucide-react'
@@ -12,6 +12,7 @@ import { useAuthStore } from '../stores/authStore'
 import clsx from 'clsx'
 
 import UsersTab from '../components/admin/UsersTab'
+import AccessRequestsTab from '../components/admin/AccessRequestsTab'
 import SectorsTab from '../components/admin/SectorsTab'
 import QuickRepliesTab from '../components/admin/QuickRepliesTab'
 import ReportsTab from '../components/admin/ReportsTab'
@@ -19,6 +20,7 @@ import AuditTab from '../components/admin/AuditTab'
 
 const TABS = [
   { key: 'users', label: 'Atendentes', icon: Users },
+  { key: 'access_requests', label: 'Acessos', icon: Mail },
   { key: 'sectors', label: 'Setores', icon: Building2 },
   { key: 'quick_replies', label: 'Respostas', icon: MessageSquarePlus },
   { key: 'reports', label: 'Relatorios', icon: BarChart3 },
@@ -386,6 +388,7 @@ export default function AdminPage() {
         <main className="flex-1 overflow-y-auto p-8 bg-surface-0/50">
           <div className="max-w-5xl mx-auto">
             {activeTab === 'users' && <UsersTab sectors={sectors} />}
+            {activeTab === 'access_requests' && <AccessRequestsTab />}
             {activeTab === 'sectors' && <SectorsTab sectors={sectors} reload={loadSectors} />}
             {activeTab === 'quick_replies' && <QuickRepliesTab sectors={sectors} />}
             {activeTab === 'reports' && <ReportsTab />}

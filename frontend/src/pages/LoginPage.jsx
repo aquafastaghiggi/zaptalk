@@ -1,7 +1,7 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { MessageSquare, Loader2, ArrowLeft, KeyRound, UserPlus } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
-import { MessageSquare, Loader2 } from 'lucide-react'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { resolvePostLoginRoute } from '../utils/onboarding'
 
@@ -28,68 +28,98 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-0 flex items-center justify-center p-4">
+    <div className="min-h-screen overflow-hidden bg-surface-0 px-4 py-8 text-white">
       <div className="absolute right-4 top-4 z-10">
         <ThemeToggle />
       </div>
-      {/* Glow de fundo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-600/10 rounded-full blur-3xl" />
+        <div className="absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-600/10 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center mb-4 shadow-lg shadow-brand-600/30">
-            <MessageSquare className="w-7 h-7 text-white" strokeWidth={1.5} />
-          </div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">ZapTalk</h1>
-          <p className="text-muted text-sm mt-1">Painel de atendimento</p>
-        </div>
-
-        {/* Card */}
-        <div className="bg-surface-1 border border-surface rounded-2xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm text-subtle mb-2">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="admin@zaptalk.com"
-                className="w-full bg-surface-2 border border-surface rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors"
-              />
+      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
+        <div className="grid w-full gap-6 rounded-[30px] border border-surface bg-surface-1/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur lg:grid-cols-[0.95fr_1.05fr] lg:p-8">
+          <div className="rounded-[26px] border border-surface bg-gradient-to-br from-surface-2 via-surface-2 to-surface-1 p-7">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/20">
+              <MessageSquare className="h-6 w-6" />
             </div>
-
-            <div>
-              <label className="block text-sm text-subtle mb-2">Senha</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className="w-full bg-surface-2 border border-surface rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors"
-              />
+            <p className="mt-5 text-[11px] uppercase tracking-[0.18em] text-subtle">Acesso interno</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Entre no painel do ZapTalk</h1>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              Use seu e-mail e senha para continuar. Se voce ainda nao recebeu acesso, volte para a apresentacao do produto e siga o fluxo de cadastro.
+            </p>
+            <div className="mt-6 space-y-3 text-sm text-slate-300">
+              <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">Primeiro acesso? Voce sera guiado automaticamente.</div>
+              <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">Area interna, painel e gestao ficam aqui dentro.</div>
             </div>
-
-            {error && (
-              <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-2">
-                {error}
-              </p>
-            )}
-
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+              type="button"
+              onClick={() => navigate('/')}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
             >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Entrando...</>
-              ) : 'Entrar'}
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para apresentacao
             </button>
-          </form>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/request-access')}
+                className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+              >
+                <UserPlus className="h-4 w-4" />
+                Solicitar acesso
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+              >
+                <KeyRound className="h-4 w-4" />
+                Esqueci minha senha
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-[26px] border border-surface bg-surface-2 p-7">
+            <div className="mb-6">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Autenticacao</p>
+              <h2 className="mt-1 text-2xl font-medium text-white">Entre com suas credenciais</h2>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="mb-2 block text-sm text-subtle">E-mail</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="admin@zaptalk.com"
+                  className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-subtle">Senha</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+
+              {error && <p className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-500 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Entrar'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

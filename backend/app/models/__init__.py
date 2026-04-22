@@ -8,6 +8,8 @@ from app.models.conversation_transfer import ConversationTransferLog
 from app.models.audit_log import AuditLog
 from app.models.quick_reply import QuickReply
 from app.models.message import Message, MessageDirection, MessageType
+from app.models.password_reset_token import PasswordResetToken
+from app.models.access_request import AccessRequest, AccessRequestStatus
 
 __all__ = [
     "User", "UserRole",
@@ -20,4 +22,6 @@ __all__ = [
     "AuditLog",
     "QuickReply",
     "Message", "MessageDirection", "MessageType",
+    "PasswordResetToken",
+    "AccessRequest", "AccessRequestStatus",
 ]

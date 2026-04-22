@@ -4,6 +4,7 @@ from app.api.v1.endpoints import auth, conversations, webhook, instances, sector
 api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(auth.router)
+api_router.include_router(auth.public_router)
 api_router.include_router(users.router)
 api_router.include_router(conversations.router)
 api_router.include_router(webhook.router)
