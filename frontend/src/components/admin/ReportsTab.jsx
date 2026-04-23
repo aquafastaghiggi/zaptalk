@@ -37,6 +37,29 @@ function BadgeCard({ label, value, tone = 'blue' }) {
   )
 }
 
+function MiniBarChart({ items = [], valueKey = 'count', labelKey = 'label' }) {
+  const max = Math.max(...items.map((item) => item?.[valueKey] || 0), 1)
+  return (
+    <div className="grid grid-cols-7 gap-2">
+      {items.map((item) => {
+        const value = item?.[valueKey] || 0
+        const height = Math.max(12, Math.round((value / max) * 100))
+        return (
+          <div key={item?.date || item?.id || item?.stage || item?.name} className="flex flex-col items-center gap-2">
+            <div className="flex h-28 w-full items-end rounded-2xl border border-surface bg-surface-1 px-2 py-2">
+              <div className="w-full rounded-xl bg-gradient-to-t from-brand-600 via-brand-500 to-brand-400" style={{ height: `${height}%` }} />
+            </div>
+            <div className="text-center">
+              <p className="text-[11px] font-medium text-white">{value}</p>
+              <p className="text-[10px] text-muted">{item?.[labelKey] || item?.label || ''}</p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function ReportsTab() {
   const [filters, setFilters] = useState({
     date_from: '',
@@ -148,37 +171,41 @@ export default function ReportsTab() {
         <BadgeCard label="Em atendimento" value={summary.in_progress ?? '-'} tone="blue" />
         <BadgeCard label="Finalizadas" value={summary.finished ?? '-'} tone="green" />
         <BadgeCard label="Entrantes" value={summary.inbound_messages ?? '-'} tone="slate" />
-        <BadgeCard label="Saídas" value={summary.outbound_messages ?? '-'} tone="slate" />
+        <BadgeCard label="SaÃ­das" value={summary.outbound_messages ?? '-'} tone="slate" />
       </div>
 
-      {loading && <p className="text-xs text-muted">Carregando relatórios...</p>}
+      {loading && <p className="text-xs text-muted">Carregando relatÃ³rios...</p>}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="bg-surface-2 border border-surface rounded-2xl p-4">
           <h3 className="text-sm font-medium text-white mb-3">Volume por dia</h3>
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {(report?.by_day || []).map((row) => (
-              <div key={row.date} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
-                <span className="text-muted">{row.date}</span>
-                <span className="text-white font-medium">{row.count}</span>
-              </div>
-            ))}
-            {!(report?.by_day || []).length && !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>}
-          </div>
+          {(report?.by_day || []).length ? (
+            <MiniBarChart items={report.by_day} labelKey="date" />
+          ) : (
+            !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>
+          )}
         </div>
 
         <div className="bg-surface-2 border border-surface rounded-2xl p-4">
           <h3 className="text-sm font-medium text-white mb-3">Por agente</h3>
           <div className="space-y-2 max-h-72 overflow-auto pr-1">
             {(report?.by_agent || []).map((row) => (
-              <div key={row.id} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-white truncate">{row.name}</p>
-                  <p className="text-muted truncate">{row.sector || 'Sem setor'}</p>
+              <div key={row.id} className="rounded-xl border border-white/5 bg-surface-1 px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white truncate text-xs font-medium">{row.name}</p>
+                    <p className="text-muted truncate text-[11px]">{row.sector || 'Sem setor'}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-white font-medium text-xs">{row.conversations}</p>
+                    <p className="text-muted text-[10px]">final: {row.finished}</p>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-white font-medium">{row.conversations}</p>
-                  <p className="text-muted">final: {row.finished}</p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-400/70 to-blue-500"
+                    style={{ width: `${Math.max(12, Math.round((row.conversations / Math.max(...(report?.by_agent || []).map((entry) => entry.conversations || 0), 1)) * 100))}%` }}
+                  />
                 </div>
               </div>
             ))}
@@ -190,12 +217,20 @@ export default function ReportsTab() {
           <h3 className="text-sm font-medium text-white mb-3">Por setor</h3>
           <div className="space-y-2 max-h-72 overflow-auto pr-1">
             {(report?.by_sector || []).map((row) => (
-              <div key={row.id} className="flex items-center justify-between gap-3 text-xs bg-surface-3/60 rounded-xl px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-white truncate">{row.name}</p>
-                  <p className="text-muted truncate">fila {row.waiting} · andamento {row.in_progress}</p>
+              <div key={row.id} className="rounded-xl border border-white/5 bg-surface-1 px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white truncate text-xs font-medium">{row.name}</p>
+                    <p className="text-muted truncate text-[11px]">fila {row.waiting} · andamento {row.in_progress}</p>
+                  </div>
+                  <span className="text-white font-medium shrink-0 text-xs">{row.conversations}</span>
                 </div>
-                <span className="text-white font-medium shrink-0">{row.conversations}</span>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400/70 to-emerald-500"
+                    style={{ width: `${Math.max(12, Math.round((row.conversations / Math.max(...(report?.by_sector || []).map((entry) => entry.conversations || 0), 1)) * 100))}%` }}
+                  />
+                </div>
               </div>
             ))}
             {!(report?.by_sector || []).length && !loading && <p className="text-xs text-muted">Sem dados para o periodo.</p>}

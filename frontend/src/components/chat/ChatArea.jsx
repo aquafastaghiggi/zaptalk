@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 import clsx from 'clsx'
 import TransferModal from './TransferModal'
+import { emitToast } from '../../utils/toast'
 import {
   Send,
   CheckCheck,
@@ -28,7 +29,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react'
 
-const QUICK_EMOJIS = ['😀', '👍', '🙏', '✅', '🔥', '💬', '📎', '⭐']
+const QUICK_EMOJIS = ['ð', 'ð', 'ð', 'â', 'ð¥', 'ð¬', 'ð', 'â­']
 
 const REPLY_VARIABLES = {
   name: (conv) => conv?.contact?.name || conv?.contact?.phone || '',
@@ -42,6 +43,12 @@ function applyReplyVariables(text, conv, user) {
     const getter = REPLY_VARIABLES[key.toLowerCase()]
     return getter ? getter(conv, user) : ''
   })
+}
+
+function isEditableTarget(target) {
+  if (!target || !target.tagName) return false
+  const tagName = target.tagName.toLowerCase()
+  return tagName === 'input' || tagName === 'textarea' || target.isContentEditable
 }
 
 function formatMediaLabel(msg) {
@@ -132,20 +139,34 @@ function MessageBubble({ msg }) {
 
 function EmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted">
-      <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-muted" data-tour="chat-empty-state">
+      <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center shadow-inner">
         <Phone className="w-7 h-7 opacity-30" />
       </div>
-      <p className="text-sm">Selecione uma conversa para comecar</p>
+      <div className="text-center">
+        <p className="text-sm text-slate-200">Selecione uma conversa para começar</p>
+        <p className="mt-1 text-xs leading-5 text-muted">
+          A conversa escolhida aparece no centro e o contexto do contato fica no painel lateral.
+        </p>
+      </div>
+      <div className="w-full max-w-md rounded-2xl border border-white/5 bg-surface-1/70 px-4 py-3">
+        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">O que fazer agora</p>
+        <ul className="mt-2 space-y-1.5 text-xs leading-5 text-muted">
+          <li>• Use a barra lateral para escolher uma conversa da fila.</li>
+          <li>• Se não houver conversa, troque de aba ou limpe filtros avançados.</li>
+          <li>• Depois, teste respostas rápidas, nota interna e transferência.</li>
+        </ul>
+      </div>
     </div>
   )
 }
 
-function ComposerModeButton({ active, icon: Icon, label, onClick }) {
+function ComposerModeButton({ active, icon: Icon, label, onClick, title }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className={clsx(
         'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors',
         active
@@ -185,8 +206,8 @@ function ConversationActionsMenu({
     <div ref={menuRef} className="absolute right-0 top-full z-30 mt-2 w-80 rounded-2xl border border-surface bg-surface-1 p-3 shadow-2xl">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-subtle">Mais ações</p>
-          <p className="mt-1 text-[11px] text-muted">Movimentos secundários da conversa</p>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-subtle">Mais aÃ§Ãµes</p>
+          <p className="mt-1 text-[11px] text-muted">Movimentos secundÃ¡rios da conversa</p>
         </div>
         <button type="button" onClick={onClose} className="text-[11px] text-muted hover:text-white">
           Fechar
@@ -334,7 +355,7 @@ export default function ChatArea() {
   const conv = conversations.find((c) => c.id === activeId)
   const msgs = messages[activeId] || []
   const isFinished = conv?.status === 'finished'
-  const contactName = conv?.contact?.name || conv?.contact?.phone || '—'
+  const contactName = conv?.contact?.name || conv?.contact?.phone || 'â'
   const filteredQuickReplies = useMemo(() => {
     const query = quickSearch.trim().toLowerCase()
     return quickReplies.filter((reply) => {
@@ -443,6 +464,98 @@ export default function ChatArea() {
   }, [actionsOpen])
 
   useEffect(() => {
+    const handleHotkeys = (event) => {
+      if (!activeId) return
+
+      const metaPressed = event.ctrlKey || event.metaKey
+      const editField = isEditableTarget(event.target)
+
+      if (event.key === 'Escape') {
+        if (actionsOpen) {
+          setActionsOpen(false)
+          return
+        }
+        if (quickReplyOpen) {
+          setQuickReplyOpen(false)
+          return
+        }
+        if (emojiOpen) {
+          setEmojiOpen(false)
+          return
+        }
+        if (contextOpen) {
+          setContextOpen(false)
+        }
+        return
+      }
+
+      if (event.altKey && !event.shiftKey && !metaPressed) {
+        if (event.key === '1') {
+          event.preventDefault()
+          handleSwitchComposerMode('public')
+          return
+        }
+        if (event.key === '2') {
+          event.preventDefault()
+          handleSwitchComposerMode('internal')
+          return
+        }
+      }
+
+      if (!metaPressed || !event.shiftKey) return
+
+      const key = event.key.toLowerCase()
+
+      if (key === 'a' && conv?.status === 'waiting' && !isFinished) {
+        event.preventDefault()
+        handleAssignMe()
+        return
+      }
+
+      if (key === 'f' && !isFinished) {
+        event.preventDefault()
+        handleFinish()
+        return
+      }
+
+      if (key === 'r' && isFinished) {
+        event.preventDefault()
+        handleReopen()
+        return
+      }
+
+      if (key === 'm') {
+        event.preventDefault()
+        handleUnread()
+        return
+      }
+
+      if (key === 'p') {
+        event.preventDefault()
+        handlePin()
+        return
+      }
+
+      if (event.key === 'Enter' && !editField && composerMode === 'public') {
+        event.preventDefault()
+        handleSend(event)
+      }
+    }
+
+    window.addEventListener('keydown', handleHotkeys)
+    return () => window.removeEventListener('keydown', handleHotkeys)
+  }, [
+    activeId,
+    actionsOpen,
+    composerMode,
+    contextOpen,
+    conv?.status,
+    emojiOpen,
+    isFinished,
+    quickReplyOpen,
+  ])
+
+  useEffect(() => {
     return () => {
       if (attachmentPreview) URL.revokeObjectURL(attachmentPreview)
     }
@@ -467,6 +580,11 @@ export default function ChatArea() {
         setNoteText('')
         setText('')
         await reloadMeta()
+        emitToast({
+          title: 'Nota salva',
+          message: 'A anotação interna foi adicionada ao histórico.',
+          variant: 'success',
+        })
       } finally {
         setSending(false)
       }
@@ -483,8 +601,18 @@ export default function ChatArea() {
         await sendMessage(activeId, text.trim())
       }
       setText('')
+      emitToast({
+        title: 'Mensagem enviada',
+        message: composerMode === 'public' ? 'A mensagem foi entregue ao cliente.' : 'A nota interna foi registrada.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error('Erro ao enviar:', err)
+      emitToast({
+        title: 'Falha ao enviar',
+        message: 'Verifique a conexão ou tente novamente.',
+        variant: 'error',
+      })
     } finally {
       setSending(false)
     }
@@ -494,8 +622,18 @@ export default function ChatArea() {
     if (!activeId || !user) return
     try {
       await assignAgent(activeId, user.id)
+      emitToast({
+        title: 'Conversa assumida',
+        message: 'Ela agora está atribuída a você.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Não foi possível assumir',
+        message: 'Tente novamente em instantes.',
+        variant: 'error',
+      })
     }
   }
 
@@ -504,8 +642,18 @@ export default function ChatArea() {
     if (!confirm('Finalizar este atendimento?')) return
     try {
       await finishConversation(activeId)
+      emitToast({
+        title: 'Atendimento finalizado',
+        message: 'A conversa foi encerrada com sucesso.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Falha ao finalizar',
+        message: 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
@@ -514,8 +662,18 @@ export default function ChatArea() {
     if (!confirm('Devolver esta conversa para a fila?')) return
     try {
       await requeueConversation(activeId)
+      emitToast({
+        title: 'Retornada para a fila',
+        message: 'A conversa voltou para o atendimento do setor.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Falha ao devolver para a fila',
+        message: 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
@@ -524,8 +682,18 @@ export default function ChatArea() {
     if (!confirm('Reabrir este atendimento?')) return
     try {
       await reopenConversation(activeId)
+      emitToast({
+        title: 'Atendimento reaberto',
+        message: 'A conversa voltou para acompanhamento.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Falha ao reabrir',
+        message: 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
@@ -534,8 +702,18 @@ export default function ChatArea() {
     const priority = typeof nextPriority === 'number' ? nextPriority : Number(nextPriority?.target?.value ?? nextPriority)
     try {
       await setConversationPriority(activeId, priority)
+      emitToast({
+        title: 'Prioridade atualizada',
+        message: 'O n?vel de prioridade foi salvo.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Falha ao alterar prioridade',
+        message: 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
@@ -543,8 +721,18 @@ export default function ChatArea() {
     if (!activeId) return
     try {
       await pinConversation(activeId)
+      emitToast({
+        title: conv?.is_pinned ? 'Conversa desafixada' : 'Conversa fixada',
+        message: 'A a??o foi aplicada com sucesso.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Falha ao fixar conversa',
+        message: 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
@@ -552,37 +740,99 @@ export default function ChatArea() {
     if (!activeId) return
     try {
       await markConversationUnread(activeId)
+      emitToast({
+        title: 'Marcada como não lida',
+        message: 'A conversa continuará destacada.',
+        variant: 'success',
+      })
     } catch (err) {
       console.error(err)
+      emitToast({
+        title: 'Falha ao marcar como não lida',
+        message: 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
   const handleAddNote = async (e) => {
     e.preventDefault()
     if (!activeId || !noteText.trim()) return
-    await api.post(`/conversations/${activeId}/notes`, { content: noteText.trim() })
-    setNoteText('')
-    await reloadMeta()
+    try {
+      await api.post(`/conversations/${activeId}/notes`, { content: noteText.trim() })
+      setNoteText('')
+      await reloadMeta()
+      emitToast({
+        title: 'Nota adicionada',
+        message: 'O histórico da conversa foi atualizado.',
+        variant: 'success',
+      })
+    } catch (err) {
+      emitToast({
+        title: 'Falha ao salvar nota',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
+    }
   }
 
   const handleAddTag = async (e) => {
     e.preventDefault()
     if (!activeId || !tagText.trim()) return
-    await api.post(`/conversations/${activeId}/tags`, { label: tagText.trim() })
-    setTagText('')
-    await reloadMeta()
+    try {
+      await api.post(`/conversations/${activeId}/tags`, { label: tagText.trim() })
+      setTagText('')
+      await reloadMeta()
+      emitToast({
+        title: 'Tag adicionada',
+        message: 'A conversa recebeu uma nova etiqueta.',
+        variant: 'success',
+      })
+    } catch (err) {
+      emitToast({
+        title: 'Falha ao adicionar tag',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
+    }
   }
 
   const handleRemoveNote = async (noteId) => {
     if (!activeId) return
-    await api.delete(`/conversations/${activeId}/notes/${noteId}`)
-    await reloadMeta()
+    try {
+      await api.delete(`/conversations/${activeId}/notes/${noteId}`)
+      await reloadMeta()
+      emitToast({
+        title: 'Nota removida',
+        message: 'O histórico foi atualizado.',
+        variant: 'success',
+      })
+    } catch (err) {
+      emitToast({
+        title: 'Falha ao remover nota',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
+    }
   }
 
   const handleRemoveTag = async (tagId) => {
     if (!activeId) return
-    await api.delete(`/conversations/${activeId}/tags/${tagId}`)
-    await reloadMeta()
+    try {
+      await api.delete(`/conversations/${activeId}/tags/${tagId}`)
+      await reloadMeta()
+      emitToast({
+        title: 'Tag removida',
+        message: 'A etiqueta saiu da conversa.',
+        variant: 'success',
+      })
+    } catch (err) {
+      emitToast({
+        title: 'Falha ao remover tag',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
+    }
   }
 
   const handleSaveCrm = async (e) => {
@@ -614,8 +864,18 @@ export default function ChatArea() {
           },
         })
       }
+      emitToast({
+        title: 'CRM salvo',
+        message: 'Os dados do contato foram atualizados.',
+        variant: 'success',
+      })
     } catch (err) {
       setCrmError(err.response?.data?.detail || 'Erro ao salvar CRM')
+      emitToast({
+        title: 'Falha ao salvar CRM',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
     } finally {
       setCrmSaving(false)
     }
@@ -626,8 +886,18 @@ export default function ChatArea() {
     try {
       await api.post(`/conversations/${activeId}/triage`)
       await loadCrm()
+      emitToast({
+        title: 'Triagem reexecutada',
+        message: 'A conversa foi reavaliada com as regras atuais.',
+        variant: 'success',
+      })
     } catch (err) {
       setCrmError(err.response?.data?.detail || 'Nao foi possivel executar a triagem.')
+      emitToast({
+        title: 'Falha na triagem',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
     }
   }
 
@@ -697,7 +967,7 @@ export default function ChatArea() {
                   {{ waiting: 'Aguardando', in_progress: 'Em atendimento', finished: 'Finalizado' }[conv.status]}
                 </span>
               )}
-              {conv?.agent?.name && <span className="text-[10px] text-muted">� {conv.agent.name}</span>}
+              {conv?.agent?.name && <span className="text-[10px] text-muted">· {conv.agent.name}</span>}
               {typeof conv?.priority === 'number' && conv.priority > 0 && (
                 <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                   Prioridade {conv.priority}
@@ -711,12 +981,13 @@ export default function ChatArea() {
             </div>
           </div>
 
-          <div className="relative flex shrink-0 items-center gap-2">
+          <div className="relative flex shrink-0 items-center gap-2" data-tour="chat-header-actions">
             {!isFinished ? (
               <>
                 {conv?.status === 'waiting' && (
                   <button
                     onClick={handleAssignMe}
+                    title="Assumir conversa"
                     className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs text-white transition-colors hover:bg-brand-500"
                   >
                     <UserCheck className="h-3.5 w-3.5" />
@@ -725,25 +996,28 @@ export default function ChatArea() {
                 )}
                 <button
                   onClick={handleFinish}
+                  title="Finalizar atendimento"
                   className="inline-flex items-center gap-1.5 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-xs text-red-300 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-200"
                 >
                   <XCircle className="h-3.5 w-3.5" />
                   Finalizar
                 </button>
               </>
-            ) : (
-              <button
-                onClick={handleReopen}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs text-white transition-colors hover:bg-brand-500"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reabrir
-              </button>
-            )}
+              ) : (
+                <button
+                  onClick={handleReopen}
+                  title="Reabrir atendimento"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs text-white transition-colors hover:bg-brand-500"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reabrir
+                </button>
+              )}
 
             <button
               type="button"
               onClick={() => setContextOpen((current) => !current)}
+              title={contextOpen ? 'Ocultar contexto lateral' : 'Mostrar contexto lateral'}
               className="inline-flex items-center gap-1.5 rounded-xl border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
             >
               {contextOpen ? 'Ocultar contexto' : 'Mostrar contexto'}
@@ -758,12 +1032,12 @@ export default function ChatArea() {
                   ? 'border-brand-500/30 bg-brand-500/15 text-brand-300'
                   : 'border-surface bg-surface-2 text-slate-300 hover:border-brand-500/30 hover:text-white'
               )}
-              title="Mais acoes"
+              title="Mais ações"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
 
-            <ConversationActionsMenu
+          <ConversationActionsMenu
               open={actionsOpen}
               menuRef={actionsMenuRef}
               conv={conv}
@@ -779,6 +1053,36 @@ export default function ChatArea() {
           </div>
         </div>
 
+        {conv?.contact?.id && (
+          <div className="border-b border-surface bg-surface-1/60 px-6 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-surface-2/70 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">Resumo do contato</p>
+                <p className="mt-1 text-sm font-medium text-white">
+                  {crm?.contact?.company || conv?.contact?.name || conv?.contact?.phone}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  {crm?.contact?.origin ? `Origem: ${crm.contact.origin}` : 'Origem não informada'}
+                  {crm?.contact?.stage ? ` · Estágio: ${crm.contact.stage}` : ''}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-white/5 bg-surface-1 px-2.5 py-1 text-[11px] text-slate-300">
+                  Tags: {meta.tags.length}
+                </span>
+                <span className="rounded-full border border-white/5 bg-surface-1 px-2.5 py-1 text-[11px] text-slate-300">
+                  {crm?.contact?.responsible_user_id ? 'Responsável definido' : 'Sem responsável'}
+                </span>
+                {crm?.summary?.last_touched_at && (
+                  <span className="rounded-full border border-white/5 bg-surface-1 px-2.5 py-1 text-[11px] text-slate-300">
+                    Atualizado em {format(new Date(crm.summary.last_touched_at), 'dd/MM HH:mm')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
             {msgs.length === 0 ? (
@@ -789,7 +1093,7 @@ export default function ChatArea() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t border-surface bg-surface-1/85 px-6 py-4 backdrop-blur">
+          <div className="border-t border-surface bg-surface-1/85 px-6 py-4 backdrop-blur" data-tour="chat-composer">
             <div className="rounded-3xl border border-surface bg-gradient-to-br from-surface-2 via-surface-2 to-surface-1 p-4 shadow-[0_1px_0_rgba(255,255,255,0.02),0_16px_40px_rgba(0,0,0,0.12)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex gap-2">
@@ -797,12 +1101,14 @@ export default function ChatArea() {
                     active={composerMode === 'public'}
                     icon={Send}
                     label="Mensagem"
+                    title="Enviar mensagem ao cliente"
                     onClick={() => handleSwitchComposerMode('public')}
                   />
                   <ComposerModeButton
                     active={composerMode === 'internal'}
                     icon={Mail}
                     label="Nota interna"
+                    title="Escrever apenas para a equipe"
                     onClick={() => handleSwitchComposerMode('internal')}
                   />
                 </div>
@@ -813,6 +1119,7 @@ export default function ChatArea() {
                       type="button"
                       onClick={() => setQuickReplyOpen((s) => !s)}
                       disabled={composerMode !== 'public'}
+                      title="Abrir respostas rápidas"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <FileText className="h-3.5 w-3.5" />
@@ -852,6 +1159,7 @@ export default function ChatArea() {
                       type="button"
                       onClick={() => setEmojiOpen((s) => !s)}
                       disabled={composerMode !== 'public'}
+                      title="Inserir emoji"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Smile className="h-3.5 w-3.5" />
@@ -879,6 +1187,7 @@ export default function ChatArea() {
                     type="button"
                     onClick={() => fileRef.current?.click()}
                     disabled={composerMode === 'internal'}
+                    title={composerMode === 'internal' ? 'Anexos ficam desativados para nota interna' : 'Adicionar anexo'}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-surface px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Paperclip className="h-3.5 w-3.5" />
@@ -887,6 +1196,17 @@ export default function ChatArea() {
 
                   <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} />
                 </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-surface bg-surface-1/70 px-3 py-2 text-[11px] text-muted">
+                <span className="font-medium text-slate-300">Atalhos:</span>
+                <span><strong className="text-white">Ctrl+Enter</strong> envia</span>
+                <span>•</span>
+                <span><strong className="text-white">Alt+1</strong> mensagem</span>
+                <span>•</span>
+                <span><strong className="text-white">Alt+2</strong> nota</span>
+                <span>•</span>
+                <span><strong className="text-white">Ctrl+Shift+A/F</strong> assumir / finalizar</span>
               </div>
 
               {attachment && (
@@ -947,6 +1267,7 @@ export default function ChatArea() {
                   </p>
                   <button
                     type="submit"
+                    title={composerMode === 'internal' ? 'Salvar nota interna' : 'Enviar mensagem'}
                     className="inline-flex items-center gap-1 rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-surface-3"
                   >
                     {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
@@ -964,6 +1285,7 @@ export default function ChatArea() {
           'flex min-h-0 flex-col border-l border-surface bg-surface-1 transition-all duration-200',
           contextOpen ? 'w-[22rem]' : 'w-0 overflow-hidden border-l-0'
         )}
+        data-tour="chat-context-panel"
       >
         <div className="flex items-center justify-between gap-3 border-b border-surface px-4 py-4">
           <div className="min-w-0">

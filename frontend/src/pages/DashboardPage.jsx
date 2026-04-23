@@ -5,9 +5,12 @@ import ChatArea from '../components/chat/ChatArea'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useNotification } from '../hooks/useNotification'
 import { useAuthStore } from '../stores/authStore'
-import { AlertTriangle, BarChart3, Clock3, RefreshCw, Timer, Users } from 'lucide-react'
+import { AlertTriangle, BarChart3, Clock3, RefreshCw, Timer, Users, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
 import ThemeToggle from '../components/ui/ThemeToggle'
+import FirstRunTour from '../components/ui/FirstRunTour'
+
+const DASHBOARD_ONBOARDING_KEY = 'zaptalk:dashboard-onboarding-dismissed'
 
 function MetricCard({ label, value, hint, icon: Icon, tone = 'blue' }) {
   const tones = {
@@ -89,6 +92,31 @@ function ProgressRow({ label, count, max = 0, meta, tone = 'blue' }) {
   )
 }
 
+function DailyBarChart({ items = [] }) {
+  const max = Math.max(...items.map((item) => item.count || 0), 1)
+  return (
+    <div className="grid grid-cols-7 gap-2">
+      {items.map((item) => {
+        const height = Math.max(12, Math.round(((item.count || 0) / max) * 100))
+        return (
+          <div key={item.date} className="flex flex-col items-center gap-2">
+            <div className="flex h-32 w-full items-end rounded-2xl border border-white/5 bg-surface-0/40 px-2 py-2">
+              <div
+                className="w-full rounded-xl bg-gradient-to-t from-brand-600 via-brand-500 to-brand-400 shadow-[0_12px_30px_rgba(59,130,246,0.18)]"
+                style={{ height: `${height}%` }}
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-[11px] font-medium text-white">{item.count}</p>
+              <p className="text-[10px] text-muted">{item.label}</p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function OperationalDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -123,6 +151,7 @@ function OperationalDashboard() {
   const statusBreakdown = data?.status_breakdown || []
   const byAgent = data?.by_agent || []
   const bySector = data?.by_sector || []
+  const volumeByDay = data?.volume_by_day || []
 
   return (
     <div className="relative overflow-hidden border-b border-surface bg-gradient-to-b from-surface-1 via-surface-1/95 to-surface-0 backdrop-blur">
@@ -143,6 +172,7 @@ function OperationalDashboard() {
             <ThemeToggle />
             <button
               onClick={load}
+              title="Recarregar painel operacional"
               className="inline-flex items-center gap-1.5 rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-muted transition-colors hover:border-brand-500/30 hover:text-white"
             >
               <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} />
@@ -180,6 +210,21 @@ function OperationalDashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <SectionShell
+            title="Volume dos últimos 7 dias"
+            subtitle="Uma leitura rápida da entrada de conversas ao longo da semana."
+            action={<span className="inline-flex items-center gap-1 rounded-full border border-white/5 bg-surface-0/70 px-2.5 py-1 text-[11px] text-muted"><CalendarDays className="h-3.5 w-3.5" />7 dias</span>}
+            className="xl:col-span-3"
+          >
+            {volumeByDay.length === 0 ? (
+              <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-3 py-3 text-xs text-muted">
+                Sem dados para exibir.
+              </div>
+            ) : (
+              <DailyBarChart items={volumeByDay} />
+            )}
+          </SectionShell>
+
           <SectionShell
             title="Alertas SLA"
             subtitle="Chamados que precisam de atenção imediata."
@@ -322,16 +367,122 @@ export default function DashboardPage() {
   useWebSocket()
   const { requestPermission } = useNotification()
   const { user } = useAuthStore()
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      return window.localStorage.getItem(DASHBOARD_ONBOARDING_KEY) !== '1'
+    } catch {
+      return true
+    }
+  })
 
   useEffect(() => {
     requestPermission().catch(() => {})
   }, [requestPermission])
 
+  const dismissOnboarding = () => {
+    setShowOnboarding(false)
+    try {
+      window.localStorage.setItem(DASHBOARD_ONBOARDING_KEY, '1')
+    } catch {
+      // ignore storage errors
+    }
+  }
+
   const canSeeDashboard = user && ['admin', 'manager'].includes(user.role)
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface-0">
-      {canSeeDashboard && <OperationalDashboard />}
+      {canSeeDashboard && (
+        <div className="border-b border-surface bg-gradient-to-b from-surface-1 via-surface-1/90 to-surface-0">
+          <div className="px-6 pt-4">
+            {showOnboarding && (
+              <div className="mb-4 rounded-3xl border border-brand-500/15 bg-brand-500/8 px-4 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.08)]" data-tour="dashboard-onboarding">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-brand-300">Primeiros passos</p>
+                    <h3 className="mt-1 text-sm font-medium text-white">Para testar sem travar, siga este caminho rápido</h3>
+                    <p className="mt-1 max-w-2xl text-[11px] leading-5 text-muted">
+                      A ideia aqui é ajudar quem chega pela primeira vez a entender o que fazer em menos de um minuto.
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={dismissOnboarding}
+                      title="Fechar essa dica agora"
+                      className="rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                    >
+                      Entendi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={dismissOnboarding}
+                      title="Não mostrar esta dica novamente"
+                      className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-500"
+                    >
+                      Não mostrar de novo
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/5 bg-surface-2/80 px-3 py-3">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">1. Comece pela fila</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">Use a sidebar para escolher uma conversa e ver a área de chat preencher.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/5 bg-surface-2/80 px-3 py-3">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">2. Envie e organize</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">Teste mensagem, nota interna, prioridade, tags e transferência sem sair da conversa.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/5 bg-surface-2/80 px-3 py-3">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">3. Veja o contexto</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">O painel lateral mostra CRM, histórico e atalhos para não depender de ajuda externa.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <OperationalDashboard />
+        </div>
+      )}
+      {canSeeDashboard && (
+        <FirstRunTour
+          enabled={true}
+          steps={[
+            {
+              selector: '[data-tour="dashboard-onboarding"]',
+              title: 'Mapa rápido do primeiro uso',
+              description: 'Esse aviso é só um guia rápido para você começar sem travar. Depois que fechar, ele não aparece de novo.',
+            },
+            {
+              selector: '[data-tour="sidebar-search"]',
+              title: 'Comece pela busca',
+              description: 'Use a busca para localizar um contato ou pule direto para a fila do setor.',
+            },
+            {
+              selector: '[data-tour="sidebar-conversation-first"]',
+              title: 'Abra a primeira conversa',
+              description: 'Clique na conversa da fila para carregar o atendimento no centro da tela.',
+            },
+            {
+              selector: '[data-tour="chat-header-actions"]',
+              title: 'Ações principais',
+              description: 'Aqui ficam assumir, finalizar e o menu com as ações secundárias da conversa.',
+            },
+            {
+              selector: '[data-tour="chat-composer"]',
+              title: 'Envie sua resposta',
+              description: 'Digite uma mensagem, use uma resposta rápida ou anexe um arquivo aqui embaixo.',
+            },
+            {
+              selector: '[data-tour="chat-context-panel"]',
+              title: 'Contexto do cliente',
+              description: 'No painel lateral ficam CRM, tags, histórico e o resumo do contato.',
+            },
+          ]}
+        />
+      )}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <ChatArea />

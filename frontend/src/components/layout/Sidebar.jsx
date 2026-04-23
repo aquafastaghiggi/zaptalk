@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
+import { emitToast } from '../../utils/toast'
 import api from '../../services/api'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -30,14 +31,15 @@ function Avatar({ name, phone }) {
   )
 }
 
-function ConversationItem({ conv, active, onClick }) {
+function ConversationItem({ conv, active, onClick, onQuickAssume, onQuickPin }) {
   const hasUnread = conv.unread_count > 0
   const name = conv.contact?.name || conv.contact?.phone || '—'
   return (
     <button
       onClick={onClick}
+      data-tour="sidebar-conversation-first"
       className={clsx(
-        'w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-2 transition-colors relative',
+        'group relative w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-2 transition-colors',
         active && 'bg-surface-2 border-r-2 border-brand-500'
       )}
     >
@@ -75,6 +77,31 @@ function ConversationItem({ conv, active, onClick }) {
           </div>
         </div>
       </div>
+
+      <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onQuickAssume?.(conv)
+          }}
+          title="Assumir esta conversa"
+          className="pointer-events-auto rounded-lg border border-surface bg-surface-1 px-2 py-1 text-[10px] text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+        >
+          Assumir
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onQuickPin?.(conv)
+          }}
+          title={conv.is_pinned ? 'Desafixar esta conversa' : 'Fixar esta conversa'}
+          className="pointer-events-auto rounded-lg border border-surface bg-surface-1 px-2 py-1 text-[10px] text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+        >
+          {conv.is_pinned ? 'Desafixar' : 'Fixar'}
+        </button>
+      </div>
     </button>
   )
 }
@@ -93,10 +120,13 @@ export default function Sidebar() {
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [agents, setAgents] = useState([])
   const [tags, setTags] = useState([])
-  const { conversations, fetchConversations, activeId, setActive } = useChatStore()
+  const { conversations, fetchConversations, activeId, setActive, assignAgent, pinConversation } = useChatStore()
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const advancedFilterCount = [agentId, tag, dateFrom, dateTo, pinnedOnly, unreadOnly].filter(Boolean).length
+  const hasActiveFilters = Boolean(
+    search || sectorId || agentId || tag || dateFrom || dateTo || pinnedOnly || unreadOnly
+  )
 
   useEffect(() => {
     api.get('/sectors').then(({ data }) => setSectors(Array.isArray(data) ? data : [])).catch(() => setSectors([]))
@@ -134,6 +164,43 @@ export default function Sidebar() {
   })
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
+
+  const handleQuickAssume = async (conv) => {
+    if (!user?.id || !conv?.id) return
+    try {
+      await assignAgent(conv.id, user.id)
+      setActive(conv.id)
+      emitToast({
+        title: 'Conversa assumida',
+        message: `${conv.contact?.name || conv.contact?.phone || 'Atendimento'} agora está com você.`,
+        variant: 'success',
+      })
+    } catch (err) {
+      emitToast({
+        title: 'Falha ao assumir',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
+    }
+  }
+
+  const handleQuickPin = async (conv) => {
+    if (!conv?.id) return
+    try {
+      await pinConversation(conv.id)
+      emitToast({
+        title: conv.is_pinned ? 'Conversa desafixada' : 'Conversa fixada',
+        message: 'A ação foi aplicada com sucesso.',
+        variant: 'success',
+      })
+    } catch (err) {
+      emitToast({
+        title: 'Falha ao fixar conversa',
+        message: err.response?.data?.detail || 'Tente novamente.',
+        variant: 'error',
+      })
+    }
+  }
 
   return (
     <aside className="w-72 flex-shrink-0 bg-surface-1 border-r border-surface flex flex-col h-screen">
@@ -182,6 +249,8 @@ export default function Sidebar() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar contato..."
+            title="Buscar por nome ou telefone"
+            data-tour="sidebar-search"
             className="w-full bg-surface-2 border border-surface rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 transition-colors"
           />
         </div>
@@ -191,6 +260,8 @@ export default function Sidebar() {
           <select
             value={sectorId}
             onChange={(e) => setSectorId(e.target.value)}
+            title="Filtrar conversas por setor"
+            data-tour="sidebar-sector"
             className="w-full bg-surface-2 border border-surface rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 transition-colors"
           >
             <option value="">Todos os setores</option>
@@ -206,6 +277,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setAdvancedOpen((current) => !current)}
+            title="Mostrar ou ocultar filtros avançados"
             className="inline-flex items-center gap-2 rounded-lg border border-surface bg-surface-2 px-3 py-2 text-[11px] text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
           >
             Filtros avancados
@@ -222,6 +294,7 @@ export default function Sidebar() {
                 setPinnedOnly(false)
                 setUnreadOnly(false)
               }}
+              title="Limpar filtros avançados"
               className="text-[11px] text-muted transition-colors hover:text-white"
             >
               Limpar
@@ -246,6 +319,7 @@ export default function Sidebar() {
               <select
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
+                title="Filtrar por agente"
                 className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white transition-colors focus:outline-none focus:border-brand-500"
               >
                 <option value="">Todos os agentes</option>
@@ -258,6 +332,7 @@ export default function Sidebar() {
               <select
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
+                title="Filtrar por tag"
                 className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-white transition-colors focus:outline-none focus:border-brand-500"
               >
                 <option value="">Todas as tags</option>
@@ -272,12 +347,14 @@ export default function Sidebar() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
+                  title="Data inicial"
                   className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-[11px] text-white transition-colors focus:outline-none focus:border-brand-500"
                 />
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
+                  title="Data final"
                   className="w-full rounded-lg border border-surface bg-surface-1 px-3 py-2 text-[11px] text-white transition-colors focus:outline-none focus:border-brand-500"
                 />
               </div>
@@ -286,27 +363,36 @@ export default function Sidebar() {
         )}
       </div>
 
-      <div className="flex border-b border-surface">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={clsx(
-              'flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors',
-              tab === key ? 'text-brand-400 border-b-2 border-brand-500' : 'text-muted hover:text-slate-300'
-            )}
-          >
+        <div className="flex border-b border-surface">
+          {TABS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              title={`Filtrar conversas em ${label.toLowerCase()}`}
+              data-tour={`sidebar-tab-${key}`}
+              className={clsx(
+                'flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors',
+                tab === key ? 'text-brand-400 border-b-2 border-brand-500' : 'text-muted hover:text-slate-300'
+              )}
+            >
             <Icon className="w-3.5 h-3.5" />
             {label}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" data-tour="sidebar-list">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-muted text-xs gap-2">
+          <div className="flex flex-col items-center justify-center h-40 px-4 text-muted text-xs gap-3 text-center">
             <MessageSquare className="w-6 h-6 opacity-30" />
-            <span>Nenhuma conversa</span>
+            <div>
+              <span className="block text-slate-200">
+                {hasActiveFilters ? 'Nenhuma conversa encontrada com estes filtros' : 'Nenhuma conversa para exibir'}
+              </span>
+              <p className="mt-1 text-[11px] leading-5 text-muted">
+                Use a busca principal, troque de aba ou abra os filtros avançados para refinar a fila.
+              </p>
+            </div>
           </div>
         ) : (
           filtered.map((conv) => (
@@ -315,6 +401,8 @@ export default function Sidebar() {
               conv={conv}
               active={conv.id === activeId}
               onClick={() => setActive(conv.id)}
+              onQuickAssume={handleQuickAssume}
+              onQuickPin={handleQuickPin}
             />
           ))
         )}

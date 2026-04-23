@@ -76,6 +76,7 @@ async def get_operational_dashboard(db: AsyncSession) -> dict:
     finished_today = 0
     first_response_values: list[float] = []
     resolution_values: list[float] = []
+    volume_by_day_map: dict[str, int] = defaultdict(int)
     overdue_items: list[dict] = []
     stale_items: list[dict] = []
     agent_counts: dict[str, dict] = defaultdict(lambda: {"count": 0, "name": "", "online": False, "sector": None, "id": None})
@@ -103,6 +104,10 @@ async def get_operational_dashboard(db: AsyncSession) -> dict:
         finished_at = _to_local(conv.finished_at)
         last_message_at = _to_local(conv.last_message_at)
         first_response_at = _to_local(conv.first_response_at)
+
+        if started_at:
+            day_key = started_at.date().isoformat()
+            volume_by_day_map[day_key] += 1
 
         if status == ConversationStatus.WAITING:
             waiting += 1
@@ -197,6 +202,17 @@ async def get_operational_dashboard(db: AsyncSession) -> dict:
 
     avg_first_response = round(sum(first_response_values) / len(first_response_values), 1) if first_response_values else None
     avg_resolution = round(sum(resolution_values) / len(resolution_values), 1) if resolution_values else None
+    volume_by_day = []
+    for offset in range(6, -1, -1):
+        day = now.date() - timedelta(days=offset)
+        key = day.isoformat()
+        volume_by_day.append(
+            {
+                "date": key,
+                "label": day.strftime("%d/%m"),
+                "count": volume_by_day_map.get(key, 0),
+            }
+        )
 
     return {
         "generated_at": now.isoformat(),
@@ -212,5 +228,6 @@ async def get_operational_dashboard(db: AsyncSession) -> dict:
         "status_breakdown": status_breakdown,
         "by_agent": by_agent,
         "by_sector": by_sector,
+        "volume_by_day": volume_by_day,
         "alerts": alerts,
     }

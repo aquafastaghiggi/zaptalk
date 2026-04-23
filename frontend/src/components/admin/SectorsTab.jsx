@@ -2,6 +2,7 @@ import { useState } from 'react'
 import api from '../../services/api'
 import { Plus, Building2, XCircle } from 'lucide-react'
 import clsx from 'clsx'
+import { emitToast } from '../../utils/toast'
 
 function Badge({ children, color = 'gray' }) {
   const colors = {
@@ -100,7 +101,11 @@ export default function SectorsTab({ sectors, reload }) {
       await api.delete(`/sectors/${sector.id}`)
       await reload()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao remover setor')
+      emitToast({
+        title: 'Falha ao remover setor',
+        message: err.response?.data?.detail || 'Erro ao remover setor',
+        variant: 'error',
+      })
     } finally {
       setDeletingId('')
     }

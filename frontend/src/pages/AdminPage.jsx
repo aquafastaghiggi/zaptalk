@@ -17,6 +17,7 @@ import SectorsTab from '../components/admin/SectorsTab'
 import QuickRepliesTab from '../components/admin/QuickRepliesTab'
 import ReportsTab from '../components/admin/ReportsTab'
 import AuditTab from '../components/admin/AuditTab'
+import { emitToast } from '../utils/toast'
 
 const TABS = [
   { key: 'users', label: 'Atendentes', icon: Users },
@@ -94,6 +95,16 @@ function InstancesTab() {
     load()
   }, [])
 
+  const resolveQrModal = async (name, data) => {
+    const base64 = data?.base64 || data?.qrcode?.base64 || null
+    const pairingCode = data?.pairing_code || data?.pairingCode || data?.qrcode?.pairingCode || null
+    const code = data?.code || data?.qrcode?.code || null
+    const imageSource = buildBlobQrSource(base64) || normalizeQrSource(base64)
+    const generatedSource = code ? await buildGeneratedQrSource(code) : null
+    const status = data?.status || (imageSource ? 'qr' : pairingCode || code ? 'pairing_code' : 'pending')
+    return { name, base64, imageSource, generatedSource, pairingCode, code, status, raw: data }
+  }
+
   const normalizeQrSource = (value) => {
     if (typeof value !== 'string') return null
     const trimmed = value.trim().replace(/\s+/g, '')
@@ -150,13 +161,7 @@ function InstancesTab() {
       setModal(false)
       setInstName('')
       await load()
-      const base64 = data?.base64 || data?.qrcode?.base64 || null
-      const pairingCode = data?.pairing_code || data?.pairingCode || data?.qrcode?.pairingCode || null
-      const code = data?.code || data?.qrcode?.code || null
-      const imageSource = buildBlobQrSource(base64) || normalizeQrSource(base64)
-      const generatedSource = code ? await buildGeneratedQrSource(code) : null
-      const status = data?.status || (imageSource ? 'qr' : pairingCode || code ? 'pairing_code' : 'pending')
-      setQrModal({ name: normalizedName, base64, imageSource, generatedSource, pairingCode, code, status, raw: data })
+      setQrModal(await resolveQrModal(normalizedName, data))
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Erro ao criar instancia')
     } finally {
@@ -168,17 +173,38 @@ function InstancesTab() {
     setQrModal({ name, base64: null, status: 'loading' })
     try {
       const { data } = await api.get(`/instances/${name}/qrcode`)
-      const base64 = data?.base64 || data?.qrcode?.base64 || null
-      const pairingCode = data?.pairing_code || data?.pairingCode || data?.qrcode?.pairingCode || null
-      const code = data?.code || data?.qrcode?.code || null
-      const imageSource = buildBlobQrSource(base64) || normalizeQrSource(base64)
-      const generatedSource = code ? await buildGeneratedQrSource(code) : null
-      const status = data?.status || (imageSource ? 'qr' : pairingCode || code ? 'pairing_code' : 'pending')
-      setQrModal({ name, base64, imageSource, generatedSource, pairingCode, code, status, raw: data })
+      setQrModal(await resolveQrModal(name, data))
     } catch {
       setQrModal({ name, base64: null, status: 'error' })
     }
   }
+
+  useEffect(() => {
+    if (!qrModal?.name) return undefined
+
+    if (qrModal.status === 'connected') {
+      const timer = window.setTimeout(() => {
+        window.location.assign('/admin?tab=sectors')
+      }, 2500)
+      return () => window.clearTimeout(timer)
+    }
+
+    if (!['loading', 'error', 'connected'].includes(qrModal.status)) {
+      const interval = window.setInterval(async () => {
+        try {
+          const { data } = await api.get(`/instances/${qrModal.name}/qrcode`)
+          const nextModal = await resolveQrModal(qrModal.name, data)
+          setQrModal(nextModal)
+        } catch {
+          // keep current modal state
+        }
+      }, 15000)
+
+      return () => window.clearInterval(interval)
+    }
+
+    return undefined
+  }, [qrModal?.name, qrModal?.status])
 
   const handleLogout = async (name) => {
     if (!confirm(`Desconectar a instancia "${name}"?`)) return
@@ -186,8 +212,17 @@ function InstancesTab() {
     try {
       await api.delete(`/instances/${name}/logout`)
       await load()
+      emitToast({
+        title: 'Instância desconectada',
+        message: `A sessão "${name}" foi encerrada com sucesso.`,
+        variant: 'success',
+      })
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao desconectar instancia')
+      emitToast({
+        title: 'Falha ao desconectar',
+        message: err.response?.data?.detail || 'Erro ao desconectar instancia',
+        variant: 'error',
+      })
     } finally {
       setBusyInstance('')
     }
@@ -199,8 +234,17 @@ function InstancesTab() {
     try {
       await api.put(`/instances/${name}/restart`)
       await load()
+      emitToast({
+        title: 'Instância reiniciada',
+        message: `A sessão "${name}" foi reiniciada com sucesso.`,
+        variant: 'success',
+      })
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao reiniciar instancia')
+      emitToast({
+        title: 'Falha ao reiniciar',
+        message: err.response?.data?.detail || 'Erro ao reiniciar instancia',
+        variant: 'error',
+      })
     } finally {
       setBusyInstance('')
     }
@@ -212,8 +256,17 @@ function InstancesTab() {
     try {
       await api.delete(`/instances/${name}`)
       await load()
+      emitToast({
+        title: 'Instância excluída',
+        message: `A sessão "${name}" foi removida da Evolution.`,
+        variant: 'success',
+      })
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao excluir instancia')
+      emitToast({
+        title: 'Falha ao excluir',
+        message: err.response?.data?.detail || 'Erro ao excluir instancia',
+        variant: 'error',
+      })
     } finally {
       setBusyInstance('')
     }
@@ -229,6 +282,19 @@ function InstancesTab() {
         <button onClick={() => setModal(true)} className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-2 rounded-lg transition-colors">
           <Plus className="w-3.5 h-3.5" /> Nova instancia
         </button>
+      </div>
+      <div className="mb-4 rounded-2xl border border-brand-500/15 bg-brand-500/8 px-4 py-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-brand-300">Fluxo guiado</p>
+            <p className="mt-1 text-sm font-medium text-white">Criar, conectar e vincular ao setor fica mais fácil seguindo estes 3 passos.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
+            <span className="rounded-full border border-white/5 bg-surface-1 px-2.5 py-1">1. Criar instância</span>
+            <span className="rounded-full border border-white/5 bg-surface-1 px-2.5 py-1">2. Ler QR Code</span>
+            <span className="rounded-full border border-white/5 bg-surface-1 px-2.5 py-1">3. Ir para Setores</span>
+          </div>
+        </div>
       </div>
       <div className="space-y-2">
         {instances.length === 0 && (
@@ -252,15 +318,15 @@ function InstancesTab() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button onClick={() => handleQr(name)} className="flex items-center gap-1 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-2.5 py-1.5 rounded-lg transition-colors">
+                <button onClick={() => handleQr(name)} title="Ver QR Code desta instância" className="flex items-center gap-1 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-2.5 py-1.5 rounded-lg transition-colors">
                   <QrCode className="w-3.5 h-3.5" /> QR Code
                 </button>
-                <button onClick={() => handleRestart(name)} disabled={busyInstance === name} className="flex items-center gap-1 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                <button onClick={() => handleRestart(name)} title="Reiniciar esta instância" disabled={busyInstance === name} className="flex items-center gap-1 text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-brand-400 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50">
                   <RefreshCw className="w-3.5 h-3.5" /> Reiniciar
                 </button>
-                <button onClick={() => load()} className="text-muted hover:text-white transition-colors p-1.5"><RefreshCw className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleLogout(name)} disabled={busyInstance === name} className="text-muted hover:text-red-400 transition-colors p-1.5 disabled:opacity-50"><XCircle className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDelete(name)} disabled={busyInstance === name} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-surface hover:border-red-400/40 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" /> Excluir</button>
+                <button onClick={() => load()} title="Atualizar lista de instâncias" className="text-muted hover:text-white transition-colors p-1.5"><RefreshCw className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleLogout(name)} title="Desconectar sessão do WhatsApp" disabled={busyInstance === name} className="text-muted hover:text-red-400 transition-colors p-1.5 disabled:opacity-50"><XCircle className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDelete(name)} title="Excluir instância e limpar a sessão" disabled={busyInstance === name} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-surface hover:border-red-400/40 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" /> Excluir</button>
               </div>
             </div>
           )
@@ -269,12 +335,19 @@ function InstancesTab() {
       {modal && (
         <Modal title="Nova instancia WhatsApp" onClose={() => setModal(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-subtle">
+              <span className="rounded-full bg-brand-500/15 px-2 py-1 text-brand-300">Passo 1</span>
+              <span>Defina o nome</span>
+            </div>
             <Input label="Nome da instancia" value={instName} onChange={e => setInstName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').replace(/\s/g, '_'))} required placeholder="ex: principal, suporte, vendas" />
             <p className="text-xs text-muted">Comece com letra. Use apenas letras minusculas, numeros e underscore. Minimo 3 caracteres.</p>
+            <div className="rounded-2xl border border-white/5 bg-surface-2 px-3 py-3 text-[11px] leading-5 text-muted">
+              Depois de criar, você vai para o QR Code. Quando conectar, clique em <strong className="text-white">Ir para Setores</strong> para finalizar o vínculo da operação.
+            </div>
             {error && <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</p>}
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setModal(false)} className="flex-1 text-sm text-muted border border-surface rounded-xl py-2.5 hover:bg-surface-2 transition-colors">Cancelar</button>
-              <button type="submit" disabled={creating} className="flex-1 text-sm bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2">
+              <button type="button" onClick={() => setModal(false)} title="Fechar sem criar a instância" className="flex-1 text-sm text-muted border border-surface rounded-xl py-2.5 hover:bg-surface-2 transition-colors">Cancelar</button>
+              <button type="submit" disabled={creating} title="Criar instância WhatsApp" className="flex-1 text-sm bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2">
                 {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Criar
               </button>
             </div>
@@ -284,8 +357,20 @@ function InstancesTab() {
       {qrModal && (
         <Modal title={`QR Code - ${qrModal.name}`} onClose={() => setQrModal(null)}>
           <div className="flex flex-col items-center gap-4">
+            <div className="flex w-full items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-subtle">
+              <span className={clsx('rounded-full px-2 py-1', qrModal.status === 'loading' ? 'bg-brand-500/15 text-brand-300' : 'bg-surface-2 text-slate-400')}>Passo 2</span>
+              <span className={clsx('rounded-full px-2 py-1', qrModal.status === 'connected' ? 'bg-green-500/15 text-green-300' : 'bg-surface-2 text-slate-400')}>Conectar</span>
+              <span className="rounded-full bg-surface-2 px-2 py-1 text-slate-400">Passo 3</span>
+            </div>
+            <div className="w-full rounded-2xl border border-surface bg-surface-2 px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Passo 2 de 3</p>
+              <p className="mt-1 text-sm font-medium text-white">
+                Conecte o WhatsApp e, depois, volte para vincular ao setor
+              </p>
+            </div>
+
             {qrModal.status === 'loading' && <div className="py-8 flex flex-col items-center gap-3"><Loader2 className="w-8 h-8 animate-spin text-brand-500" /><p className="text-sm text-muted">Gerando QR Code...</p></div>}
-            {qrModal.status === 'connected' && <div className="py-8 flex flex-col items-center gap-3"><CheckCircle className="w-10 h-10 text-green-400" /><p className="text-sm text-white font-medium">WhatsApp ja conectado!</p></div>}
+            {qrModal.status === 'connected' && <div className="py-8 flex flex-col items-center gap-3"><CheckCircle className="w-10 h-10 text-green-400" /><p className="text-sm text-white font-medium">WhatsApp já conectado!</p></div>}
             {qrModal.status === 'qr' && (
               <>
                 <div className="bg-white p-4 rounded-2xl shadow-inner"><img src={qrModal.generatedSource || qrModal.imageSource} alt="QR Code" className="w-64 h-64" /></div>
@@ -299,7 +384,22 @@ function InstancesTab() {
                 <p className="text-xs text-muted text-center max-w-xs">Insira este código no seu WhatsApp para conectar.</p>
               </div>
             )}
-            <button onClick={() => handleQr(qrModal.name)} className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1.5"><RefreshCw className="w-3 h-3" /> Atualizar QR Code</button>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <button onClick={() => handleQr(qrModal.name)} title="Gerar novo QR Code" className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1.5"><RefreshCw className="w-3 h-3" /> Atualizar QR Code</button>
+              <button
+                onClick={() => {
+                  setQrModal(null)
+                  window.location.assign('/admin?tab=sectors')
+                }}
+                title="Ir para o cadastro de setores"
+                className="text-xs border border-surface text-slate-300 hover:border-brand-500 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Ir para Setores
+              </button>
+            </div>
+            <p className="text-center text-[11px] leading-5 text-muted">
+              Se o QR não aparecer, atualize a instância ou aguarde alguns segundos para o código do pareamento.
+            </p>
           </div>
         </Modal>
       )}

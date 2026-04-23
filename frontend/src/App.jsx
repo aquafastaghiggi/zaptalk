@@ -11,10 +11,12 @@ import ChangePasswordPage from './pages/ChangePasswordPage'
 import SetupWizardPage from './pages/SetupWizardPage'
 import WelcomePage from './pages/WelcomePage'
 import PrivateRoute from './components/ui/PrivateRoute'
+import ToastHost from './components/ui/ToastHost'
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ToastHost />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />

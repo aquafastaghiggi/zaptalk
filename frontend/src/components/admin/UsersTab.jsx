@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../services/api'
 import { Plus, Eye, EyeOff, Trash2, Loader2, XCircle } from 'lucide-react'
 import clsx from 'clsx'
+import { emitToast } from '../../utils/toast'
 
 function Badge({ children, color = 'gray' }) {
   const colors = {
@@ -157,9 +158,17 @@ export default function UsersTab({ sectors }) {
     if (!nextPassword) return
     try {
       await api.post(`/users/${user.id}/reset-password`, { password: nextPassword })
-      alert('Senha atualizada')
+      emitToast({
+        title: 'Senha atualizada',
+        message: `A senha de ${user.name} foi redefinida.`,
+        variant: 'success',
+      })
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao redefinir senha')
+      emitToast({
+        title: 'Falha ao redefinir senha',
+        message: err.response?.data?.detail || 'Erro ao redefinir senha',
+        variant: 'error',
+      })
     }
   }
 
@@ -170,7 +179,11 @@ export default function UsersTab({ sectors }) {
       await api.delete(`/users/${user.id}`)
       await load()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao remover usuario')
+      emitToast({
+        title: 'Falha ao remover usuário',
+        message: err.response?.data?.detail || 'Erro ao remover usuario',
+        variant: 'error',
+      })
     } finally {
       setDeletingId('')
     }

@@ -12,7 +12,7 @@ from app.core.security import get_password_hash, verify_password
 from app.db.database import get_db
 from app.models.access_request import AccessRequest, AccessRequestStatus
 from app.models.password_reset_token import PasswordResetToken
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import (
     AccessRequestCreate,
     AccessRequestOut,
@@ -53,8 +53,9 @@ async def register(
 @public_router.post("/signup", response_model=UserCreatedResponse, status_code=201)
 async def public_signup(data: UserCreate, db: AsyncSession = Depends(get_db)):
     if not settings.PUBLIC_SIGNUP_ENABLED:
-        raise HTTPException(status_code=403, detail="Cadastro p?blico desativado")
+        raise HTTPException(status_code=403, detail="Cadastro público desativado")
 
+    data.role = UserRole.AGENT
     user, temp_password = await create_user(db, data)
     return UserCreatedResponse(user=user, temp_password=temp_password)
 
