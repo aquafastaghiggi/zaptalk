@@ -2,16 +2,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
+from datetime import datetime, timedelta, timezone
+import secrets
 
 from app.db.database import get_db
 from app.core.deps import require_admin, require_manager_or_admin
 from app.core.security import get_password_hash
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate, UserOut, UserPasswordReset, UserCreatedResponse
+from app.models.invite_token import InviteToken
+from app.schemas.user import (
+    UserCreate,
+    UserUpdate,
+    UserOut,
+    UserPasswordReset,
+    UserCreatedResponse,
+    UserInvitationCreate,
+    UserInvitationOut,
+)
 from app.services.audit_service import record_audit_log
-from app.services.auth_service import create_user
+from app.services.auth_service import create_user, generate_temp_password
+from app.services.email_service import send_invitation_email
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _build_invite_url(token: str) -> str:
+    return f"/invite/{token}"
 
 
 @router.get("", response_model=List[UserOut])
@@ -44,6 +60,83 @@ async def create(
         },
     )
     return UserCreatedResponse(user=user, temp_password=temp_password)
+
+
+@router.post("/invitations", response_model=UserInvitationOut, status_code=201)
+async def create_invitation(
+    body: UserInvitationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    temp_password = generate_temp_password()
+
+    if user and user.is_active:
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+
+    if not user:
+        user = User(
+            name=body.name,
+            email=body.email,
+            hashed_password=get_password_hash(temp_password),
+            role=body.role,
+            sector_id=body.sector_id,
+            is_active=False,
+            must_change_password=True,
+            setup_done=False,
+            first_login=True,
+        )
+        db.add(user)
+        await db.flush()
+    else:
+        user.name = body.name
+        user.role = body.role
+        user.sector_id = body.sector_id
+        user.hashed_password = get_password_hash(temp_password)
+        user.is_active = False
+        user.must_change_password = True
+        user.setup_done = False
+        user.first_login = True
+        await db.flush()
+
+    token = secrets.token_urlsafe(32)
+    invite = InviteToken(
+        user_id=user.id,
+        email=user.email,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+    )
+    db.add(invite)
+    await db.flush()
+
+    await record_audit_log(
+        db,
+        action="user.invitation_created",
+        entity_type="user",
+        entity_id=user.id,
+        actor=current_user,
+        details={
+            "name": user.name,
+            "email": user.email,
+            "role": user.role.value,
+            "sector_id": user.sector_id,
+            "invite_token": token,
+        },
+    )
+    email_sent, delivery_message = send_invitation_email(
+        name=user.name,
+        email=user.email,
+        token=token,
+        expires_at=invite.expires_at,
+    )
+    return UserInvitationOut(
+        user=user,
+        invite_url=_build_invite_url(token),
+        expires_at=invite.expires_at,
+        email_sent=email_sent,
+        delivery_message=delivery_message,
+    )
 
 
 @router.patch("/{user_id}", response_model=UserOut)

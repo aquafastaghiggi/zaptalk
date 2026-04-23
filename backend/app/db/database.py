@@ -33,7 +33,7 @@ async def get_db() -> AsyncSession:
 async def init_db():
     """Cria todas as tabelas ao iniciar a aplicação."""
     async with engine.begin() as conn:
-        from app.models import user, sector, contact, conversation, message, conversation_note, conversation_tag, conversation_transfer, audit_log, quick_reply, password_reset_token, access_request  # noqa
+        from app.models import user, sector, contact, conversation, message, conversation_note, conversation_tag, conversation_transfer, audit_log, quick_reply, password_reset_token, invite_token, access_request  # noqa
         await conn.run_sync(Base.metadata.create_all)
         await _ensure_sqlite_user_onboarding_fields(conn)
         await _ensure_sqlite_conversation_priority(conn)

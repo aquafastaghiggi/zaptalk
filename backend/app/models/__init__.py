@@ -9,6 +9,7 @@ from app.models.audit_log import AuditLog
 from app.models.quick_reply import QuickReply
 from app.models.message import Message, MessageDirection, MessageType
 from app.models.password_reset_token import PasswordResetToken
+from app.models.invite_token import InviteToken
 from app.models.access_request import AccessRequest, AccessRequestStatus
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "QuickReply",
     "Message", "MessageDirection", "MessageType",
     "PasswordResetToken",
+    "InviteToken",
     "AccessRequest", "AccessRequestStatus",
 ]

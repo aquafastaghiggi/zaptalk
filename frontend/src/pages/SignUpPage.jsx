@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Loader2, ShieldCheck, UserPlus, KeyRound, LogIn } from 'lucide-react'
+import { ArrowRight, Loader2, ShieldCheck, UserPlus, KeyRound, LogIn, HelpCircle } from 'lucide-react'
 import api from '../services/api'
 import ThemeToggle from '../components/ui/ThemeToggle'
 
@@ -25,6 +25,14 @@ export default function SignUpPage() {
       })
       setCreated(data)
       setForm({ name: '', email: '', password: '' })
+      navigate('/signup-confirmed?source=signup', {
+        replace: true,
+        state: {
+          name: data.user?.name || form.name,
+          email: data.user?.email || form.email,
+          tempPassword: data.temp_password,
+        },
+      })
     } catch (err) {
       setError(err.response?.data?.detail || 'Nao foi possivel criar a conta.')
     } finally {
@@ -153,6 +161,16 @@ export default function SignUpPage() {
                   className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
                 >
                   Pedir acesso comercial
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/help')}
+                  className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Ver ajuda
+                  </span>
                 </button>
               </div>
             </div>

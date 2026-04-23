@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Loader2, Mail, ShieldCheck, UserPlus } from 'lucide-react'
+import { ArrowRight, Loader2, Mail, ShieldCheck, UserPlus, HelpCircle } from 'lucide-react'
 import api from '../services/api'
 import ThemeToggle from '../components/ui/ThemeToggle'
 
@@ -114,6 +114,16 @@ export default function ForgotPasswordPage() {
                   <span className="inline-flex items-center justify-center gap-2">
                     <UserPlus className="h-4 w-4" />
                     Solicitar acesso
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/help')}
+                  className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Ver ajuda
                   </span>
                 </button>
               </div>

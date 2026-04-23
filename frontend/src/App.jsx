@@ -5,6 +5,9 @@ import SignUpPage from './pages/SignUpPage'
 import RequestAccessPage from './pages/RequestAccessPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import InviteAcceptPage from './pages/InviteAcceptPage'
+import SignupConfirmedPage from './pages/SignupConfirmedPage'
+import HelpPage from './pages/HelpPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
@@ -25,6 +28,9 @@ export default function App() {
         <Route path="/request-access" element={<RequestAccessPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/invite/:token" element={<InviteAcceptPage />} />
+        <Route path="/signup-confirmed" element={<SignupConfirmedPage />} />
+        <Route path="/help" element={<HelpPage />} />
         <Route path="/app" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/dashboard" element={<Navigate to="/app" replace />} />
         <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />

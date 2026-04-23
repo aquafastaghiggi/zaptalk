@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../services/api'
-import { Plus, Eye, EyeOff, Trash2, Loader2, XCircle } from 'lucide-react'
+import { Plus, Eye, EyeOff, Trash2, Loader2, XCircle, Mail, Copy, Link2 } from 'lucide-react'
 import clsx from 'clsx'
 import { emitToast } from '../../utils/toast'
 
@@ -64,9 +64,11 @@ function Select({ label, children, ...props }) {
 export default function UsersTab({ sectors }) {
   const [users, setUsers] = useState([])
   const [modal, setModal] = useState(false)
+  const [inviteModal, setInviteModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [showPass, setShowPass] = useState(false)
   const [tempPasswordInfo, setTempPasswordInfo] = useState(null)
+  const [inviteResult, setInviteResult] = useState(null)
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -75,9 +77,17 @@ export default function UsersTab({ sectors }) {
     sector_id: '',
     is_active: true,
   })
+  const [inviteForm, setInviteForm] = useState({
+    name: '',
+    email: '',
+    role: 'agent',
+    sector_id: '',
+  })
   const [saving, setSaving] = useState(false)
+  const [inviting, setInviting] = useState(false)
   const [deletingId, setDeletingId] = useState('')
   const [error, setError] = useState('')
+  const [inviteError, setInviteError] = useState('')
 
   const load = async () => {
     const { data } = await api.get('/users')
@@ -94,6 +104,13 @@ export default function UsersTab({ sectors }) {
     setShowPass(false)
     setError('')
     setModal(true)
+  }
+
+  const openInvite = () => {
+    setInviteForm({ name: '', email: '', role: 'agent', sector_id: '' })
+    setInviteResult(null)
+    setInviteError('')
+    setInviteModal(true)
   }
 
   const openEdit = (user) => {
@@ -172,6 +189,34 @@ export default function UsersTab({ sectors }) {
     }
   }
 
+  const handleInvite = async (e) => {
+    e.preventDefault()
+    setInviteError('')
+    setInviting(true)
+    try {
+      const { data } = await api.post('/users/invitations', {
+        name: inviteForm.name,
+        email: inviteForm.email,
+        role: inviteForm.role,
+        sector_id: inviteForm.sector_id || null,
+      })
+      const inviteUrl = `${window.location.origin}${data.invite_url}`
+      setInviteResult({
+        name: data.user?.name || inviteForm.name,
+        email: data.user?.email || inviteForm.email,
+        inviteUrl,
+        emailSent: Boolean(data.email_sent),
+        deliveryMessage: data.delivery_message || '',
+        expiresAt: data.expires_at,
+      })
+      await load()
+    } catch (err) {
+      setInviteError(err.response?.data?.detail || 'Erro ao gerar convite')
+    } finally {
+      setInviting(false)
+    }
+  }
+
   const handleDelete = async (user) => {
     if (!confirm(`Remover o usuario "${user.name}"? Isso vai desativar o acesso.`)) return
     setDeletingId(user.id)
@@ -196,12 +241,20 @@ export default function UsersTab({ sectors }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-muted">{users.length} usuario(s)</p>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-2 rounded-lg transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" /> Novo usuario
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openInvite}
+            className="flex items-center gap-1.5 text-xs border border-surface text-slate-300 px-3 py-2 rounded-lg transition-colors hover:bg-surface-3"
+          >
+            <Mail className="w-3.5 h-3.5" /> Convidar por e-mail
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-2 rounded-lg transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> Novo usuario
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -327,6 +380,121 @@ export default function UsersTab({ sectors }) {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {inviteModal && (
+        <Modal title="Convidar por e-mail" onClose={() => setInviteModal(false)}>
+          {!inviteResult ? (
+            <form onSubmit={handleInvite} className="space-y-4">
+              <Input
+                label="Nome completo"
+                value={inviteForm.name}
+                onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))}
+                required
+                placeholder="Joao Silva"
+              />
+              <Input
+                label="E-mail"
+                type="email"
+                value={inviteForm.email}
+                onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))}
+                required
+                placeholder="joao@empresa.com"
+              />
+              <Select
+                label="Perfil"
+                value={inviteForm.role}
+                onChange={e => setInviteForm(f => ({ ...f, role: e.target.value }))}
+              >
+                <option value="agent">Atendente</option>
+                <option value="manager">Gestor</option>
+                <option value="admin">Administrador</option>
+              </Select>
+              <Select
+                label="Setor"
+                value={inviteForm.sector_id}
+                onChange={e => setInviteForm(f => ({ ...f, sector_id: e.target.value }))}
+              >
+                <option value="">Sem setor</option>
+                {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Select>
+
+              <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-xs text-muted">
+                O sistema cria o acesso e tenta enviar o convite por e-mail automaticamente. Se o SMTP nao estiver configurado, o link continua disponivel para copia.
+              </div>
+
+              {inviteError && <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{inviteError}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setInviteModal(false)}
+                  className="flex-1 text-sm text-muted border border-surface rounded-xl py-2.5 hover:bg-surface-2 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  className="flex-1 text-sm bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2"
+                >
+                  {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                  Enviar convite
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-slate-200">
+                Convite preparado para <span className="font-medium text-white">{inviteResult.name}</span>.
+                {inviteResult.emailSent ? ' O e-mail foi enviado com sucesso.' : ' O e-mail nao foi enviado porque o SMTP nao esta configurado.'}
+              </div>
+              {inviteResult.deliveryMessage && (
+                <div className="rounded-xl border border-surface bg-surface-2 px-4 py-3 text-xs text-muted">
+                  {inviteResult.deliveryMessage}
+                </div>
+              )}
+              <div className="rounded-xl border border-surface bg-surface-2 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Link do convite</p>
+                <p className="mt-2 break-all text-sm font-medium text-white">{inviteResult.inviteUrl}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(inviteResult.inviteUrl)
+                      emitToast({ title: 'Link copiado', message: 'O convite foi copiado.', variant: 'success' })
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-500"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copiar link
+                  </button>
+                  <a
+                    href={inviteResult.inviteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-surface bg-surface-1 px-3 py-2 text-xs text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    Abrir convite
+                  </a>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInviteModal(false)
+                    setInviteResult(null)
+                  }}
+                  className="flex-1 rounded-xl bg-brand-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-500"
+                >
+                  Concluir
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 

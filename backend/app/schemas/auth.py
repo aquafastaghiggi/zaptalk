@@ -42,3 +42,15 @@ class AccessRequestOut(BaseModel):
 
 class AccessRequestStatusUpdate(BaseModel):
     status: AccessRequestStatus
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str
+    password: str
+
+
+class InvitationPreviewOut(BaseModel):
+    name: str
+    email: EmailStr
+    expires_at: datetime
+    is_valid: bool = True

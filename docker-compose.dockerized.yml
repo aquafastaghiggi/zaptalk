@@ -82,6 +82,15 @@ services:
       EVOLUTION_API_URL: http://evolution_api:8080
       EVOLUTION_API_KEY: zaptalk_secret_key_change_me
       BACKEND_PUBLIC_URL: http://backend:8000
+      FRONTEND_PUBLIC_URL: http://localhost:5173
+      SMTP_HOST: ""
+      SMTP_PORT: "587"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: ""
+      SMTP_FROM_NAME: ZapTalk
+      SMTP_USE_TLS: "true"
+      SMTP_USE_SSL: "false"
       AI_ENABLED: "false"
       OPENAI_API_KEY: ""
       OPENAI_API_BASE_URL: https://api.openai.com/v1

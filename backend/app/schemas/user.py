@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import datetime
 from app.models.user import UserRole
 
 
@@ -34,6 +35,21 @@ class UserCreate(BaseModel):
     password: Optional[str] = None
     role: UserRole = UserRole.AGENT
     sector_id: Optional[str] = None
+
+
+class UserInvitationCreate(BaseModel):
+    name: str
+    email: EmailStr
+    role: UserRole = UserRole.AGENT
+    sector_id: Optional[str] = None
+
+
+class UserInvitationOut(BaseModel):
+    user: UserPublic
+    invite_url: str
+    expires_at: Optional[datetime] = None
+    email_sent: bool = False
+    delivery_message: Optional[str] = None
 
 
 class UserUpdate(BaseModel):

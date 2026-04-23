@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, Loader2, ArrowLeft, KeyRound, UserPlus } from 'lucide-react'
+import { MessageSquare, Loader2, ArrowLeft, KeyRound, UserPlus, HelpCircle } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { resolvePostLoginRoute } from '../utils/onboarding'
@@ -83,6 +83,14 @@ export default function LoginPage() {
               >
                 <ArrowLeft className="h-4 w-4" />
                 Pedir acesso comercial
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/help')}
+                className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+              >
+                <HelpCircle className="h-4 w-4" />
+                Ajuda
               </button>
             </div>
           </div>

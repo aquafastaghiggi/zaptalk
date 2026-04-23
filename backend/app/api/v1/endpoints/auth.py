@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.db.database import get_db
 from app.models.access_request import AccessRequest, AccessRequestStatus
+from app.models.invite_token import InviteToken
 from app.models.password_reset_token import PasswordResetToken
 from app.models.user import User, UserRole
 from app.schemas.auth import (
@@ -18,11 +19,14 @@ from app.schemas.auth import (
     AccessRequestOut,
     AccessRequestStatusUpdate,
     ForgotPasswordRequest,
+    InvitationAcceptRequest,
+    InvitationPreviewOut,
     ResetPasswordRequest,
     ResetPasswordResponse,
 )
-from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserCreatedResponse, UserOut
-from app.services.auth_service import authenticate_user, create_user
+from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserCreatedResponse, UserOut, UserInvitationCreate, UserInvitationOut
+from app.services.auth_service import authenticate_user, create_user, generate_temp_password
+from app.services.email_service import send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 public_router = APIRouter(prefix="/public", tags=["public"])
@@ -60,47 +64,57 @@ async def public_signup(data: UserCreate, db: AsyncSession = Depends(get_db)):
     return UserCreatedResponse(user=user, temp_password=temp_password)
 
 
-@router.get("/me", response_model=UserOut)
-async def me(current_user: User = Depends(get_current_user)):
-    return current_user
+@public_router.get("/invitation/{token}", response_model=InvitationPreviewOut)
+async def preview_invitation(token: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(InviteToken).where(InviteToken.token == token))
+    invitation = result.scalar_one_or_none()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Convite nao encontrado")
+    if invitation.accepted_at is not None:
+        raise HTTPException(status_code=400, detail="Convite ja utilizado")
+    if invitation.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Convite expirado")
+
+    user_result = await db.execute(select(User).where(User.id == invitation.user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario do convite nao encontrado")
+
+    return InvitationPreviewOut(
+        name=user.name,
+        email=invitation.email,
+        expires_at=invitation.expires_at,
+        is_valid=True,
+    )
 
 
-@router.patch("/change-password")
-async def change_password(
-    body: ChangePasswordRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if not verify_password(body.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Senha atual incorreta")
-    if body.new_password == body.current_password:
-        raise HTTPException(status_code=400, detail="Nova senha deve ser diferente da atual")
+@public_router.post("/invitation/accept")
+async def accept_invitation(body: InvitationAcceptRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(InviteToken).where(InviteToken.token == body.token))
+    invitation = result.scalar_one_or_none()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Convite nao encontrado")
+    if invitation.accepted_at is not None:
+        raise HTTPException(status_code=400, detail="Convite ja utilizado")
+    if invitation.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Convite expirado")
 
-    current_user.hashed_password = get_password_hash(body.new_password)
-    current_user.must_change_password = False
-    current_user.first_login = False
+    user_result = await db.execute(select(User).where(User.id == invitation.user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    user.hashed_password = get_password_hash(body.password)
+    user.is_active = True
+    user.must_change_password = False
+    user.first_login = False
+    invitation.accepted_at = datetime.now(timezone.utc)
     await db.flush()
-    return {"ok": True}
-
-
-@router.patch("/setup-done")
-async def mark_setup_done(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
-):
-    current_user.setup_done = True
-    await db.flush()
-    return {"ok": True}
-
-
-@router.patch("/first-login-done")
-async def mark_first_login_done(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    current_user.first_login = False
-    await db.flush()
-    return {"ok": True}
+    return {
+        "ok": True,
+        "message": "Cadastro confirmado com sucesso.",
+        "redirect_url": "/signup-confirmed?source=invite",
+    }
 
 
 @router.post("/forgot-password", response_model=ResetPasswordResponse)
@@ -108,7 +122,7 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
-        return ResetPasswordResponse(message="Se o e-mail existir, enviaremos o link de redefinição.")
+        return ResetPasswordResponse(message="Se o e-mail existir, enviaremos o link de redefinicao.")
 
     token = secrets.token_urlsafe(32)
     reset_token = PasswordResetToken(
@@ -119,8 +133,14 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     )
     db.add(reset_token)
     await db.flush()
+    email_sent, _delivery_message = send_password_reset_email(
+        name=user.name,
+        email=user.email,
+        reset_token=token,
+        expires_at=reset_token.expires_at,
+    )
     return ResetPasswordResponse(
-        message="Link de redefinição gerado com sucesso.",
+        message=("Link enviado por e-mail com sucesso." if email_sent else "Link de redefinicao gerado com sucesso."),
         reset_url=f"/reset-password/{token}",
     )
 

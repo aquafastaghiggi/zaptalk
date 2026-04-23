@@ -73,7 +73,8 @@ function Badge({ children, color = 'gray' }) {
   )
 }
 
-function InstancesTab() {
+function InstancesTab({ sectors = [] }) {
+  const navigate = useNavigate()
   const [instances, setInstances] = useState([])
   const [modal, setModal] = useState(false)
   const [instName, setInstName] = useState('')
@@ -184,8 +185,18 @@ function InstancesTab() {
 
     if (qrModal.status === 'connected') {
       const timer = window.setTimeout(() => {
-        window.location.assign('/admin?tab=sectors')
-      }, 2500)
+        const nextRoute = sectors.length === 0
+          ? '/admin?tab=sectors&wizard=1&prefill=suporte'
+          : '/admin?tab=sectors'
+        navigate(nextRoute)
+        emitToast({
+          title: 'WhatsApp conectado',
+          message: sectors.length === 0
+            ? 'Vou abrir Setores com uma sugestão pronta para você continuar.'
+            : 'Vou abrir Setores para você vincular a operação.',
+          variant: 'success',
+        })
+      }, 1300)
       return () => window.clearTimeout(timer)
     }
 
@@ -204,7 +215,7 @@ function InstancesTab() {
     }
 
     return undefined
-  }, [qrModal?.name, qrModal?.status])
+  }, [qrModal?.name, qrModal?.status, sectors.length, navigate])
 
   const handleLogout = async (name) => {
     if (!confirm(`Desconectar a instancia "${name}"?`)) return
@@ -489,10 +500,17 @@ export default function AdminPage() {
           <div className="max-w-5xl mx-auto">
             {activeTab === 'users' && <UsersTab sectors={sectors} />}
             {activeTab === 'access_requests' && <AccessRequestsTab />}
-            {activeTab === 'sectors' && <SectorsTab sectors={sectors} reload={loadSectors} />}
+            {activeTab === 'sectors' && (
+              <SectorsTab
+                sectors={sectors}
+                reload={loadSectors}
+                autoOpenWizard={searchParams.get('wizard') === '1' && activeTab === 'sectors'}
+                wizardPrefill={searchParams.get('prefill') || ''}
+              />
+            )}
             {activeTab === 'quick_replies' && <QuickRepliesTab sectors={sectors} />}
             {activeTab === 'reports' && <ReportsTab />}
-            {activeTab === 'instances' && <InstancesTab />}
+            {activeTab === 'instances' && <InstancesTab sectors={sectors} />}
             {activeTab === 'audit' && <AuditTab />}
             {activeTab === 'ai' && (
               <div className="flex flex-col items-center justify-center py-20 text-center">

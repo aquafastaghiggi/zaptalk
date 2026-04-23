@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowRight, Loader2, Lock } from 'lucide-react'
+import { ArrowRight, Loader2, Lock, HelpCircle } from 'lucide-react'
 import api from '../services/api'
 import ThemeToggle from '../components/ui/ThemeToggle'
 
@@ -18,7 +18,7 @@ export default function ResetPasswordPage() {
     e.preventDefault()
     setError('')
     if (newPassword !== confirmPassword) {
-      setError('A confirmação precisa ser igual à nova senha.')
+      setError('A confirmacao precisa ser igual a nova senha.')
       return
     }
 
@@ -61,13 +61,13 @@ export default function ResetPasswordPage() {
 
           <form onSubmit={handleSubmit} className="rounded-[26px] border border-surface bg-surface-2 p-7">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Reconfiguração</p>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Reconfiguracao</p>
               <h2 className="mt-1 text-2xl font-medium text-white">Defina uma nova senha</h2>
             </div>
 
             <div className="mt-6 space-y-4">
               <div>
-                <label className="mb-2 block text-sm text-subtle">Token de redefinição</label>
+                <label className="mb-2 block text-sm text-subtle">Token de redefinicao</label>
                 <input
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-brand-500 focus:outline-none"
-                  placeholder="Mínimo de 6 caracteres"
+                  placeholder="Minimo de 6 caracteres"
                 />
               </div>
               <div>
@@ -110,6 +110,26 @@ export default function ResetPasswordPage() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                 Redefinir senha
               </button>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                >
+                  Voltar para login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/help')}
+                  className="w-full rounded-xl border border-surface bg-surface-1 px-4 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Ver ajuda
+                  </span>
+                </button>
+              </div>
             </div>
           </form>
         </div>

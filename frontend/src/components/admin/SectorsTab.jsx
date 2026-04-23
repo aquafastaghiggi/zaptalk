@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import api from '../../services/api'
 import { Plus, Building2, XCircle } from 'lucide-react'
 import clsx from 'clsx'
@@ -47,7 +47,7 @@ function Input({ label, ...props }) {
   )
 }
 
-export default function SectorsTab({ sectors, reload }) {
+export default function SectorsTab({ sectors, reload, autoOpenWizard = false, wizardPrefill = '' }) {
   const [modal, setModal] = useState(false)
   const [editingSector, setEditingSector] = useState(null)
   const [name, setName] = useState('')
@@ -55,6 +55,7 @@ export default function SectorsTab({ sectors, reload }) {
   const [keywords, setKeywords] = useState('')
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState('')
+  const wizardOpenedRef = useRef(false)
 
   const openCreate = () => {
     setEditingSector(null)
@@ -63,6 +64,18 @@ export default function SectorsTab({ sectors, reload }) {
     setKeywords('')
     setModal(true)
   }
+
+  useEffect(() => {
+    if (!autoOpenWizard || wizardOpenedRef.current) return
+    if (Array.isArray(sectors) && sectors.length > 0) return
+
+    wizardOpenedRef.current = true
+    setEditingSector(null)
+    setName(wizardPrefill || 'Suporte')
+    setDesc('Setor sugerido para os primeiros atendimentos')
+    setKeywords('suporte, ajuda, atendimento, dúvida')
+    setModal(true)
+  }, [autoOpenWizard, sectors, wizardPrefill])
 
   const openEdit = (sector) => {
     setEditingSector(sector)
@@ -171,6 +184,11 @@ export default function SectorsTab({ sectors, reload }) {
       {modal && (
         <Modal title={editingSector ? 'Editar setor' : 'Novo setor'} onClose={() => setModal(false)}>
           <form onSubmit={handleSave} className="space-y-4">
+            {!editingSector && autoOpenWizard && (
+              <div className="rounded-2xl border border-brand-500/15 bg-brand-500/8 px-3 py-3 text-[11px] leading-5 text-muted">
+                O WhatsApp já foi conectado. Agora vamos sugerir um setor inicial para receber os primeiros atendimentos.
+              </div>
+            )}
             <Input label="Nome do setor" value={name} onChange={e => setName(e.target.value)} required placeholder="ex: Suporte, Vendas..." />
             <Input label="Descricao (opcional)" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descricao curta" />
             <Input

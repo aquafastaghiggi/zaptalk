@@ -15,6 +15,16 @@ class Settings(BaseSettings):
     EVOLUTION_API_URL: str = "http://localhost:8080"
     EVOLUTION_API_KEY: str = ""
     BACKEND_PUBLIC_URL: str = "http://backend:8000"
+    FRONTEND_PUBLIC_URL: str = "http://localhost:5173"
+
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "ZapTalk"
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
 
     AI_ENABLED: bool = False
     OPENAI_API_KEY: str = ""

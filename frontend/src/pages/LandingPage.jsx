@@ -1,6 +1,6 @@
 ﻿import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, CheckCircle2, MessageSquare, Smartphone, BarChart3, Shield, PlayCircle, UserPlus } from 'lucide-react'
+import { ArrowRight, CheckCircle2, MessageSquare, Smartphone, BarChart3, Shield, PlayCircle, UserPlus, HelpCircle } from 'lucide-react'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { useAuthStore } from '../stores/authStore'
 import { resolvePostLoginRoute } from '../utils/onboarding'
@@ -85,6 +85,7 @@ export default function LandingPage() {
               <button onClick={() => navigate('/sign-up')} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-500">Criar conta <ArrowRight className="h-4 w-4" /></button>
               <button onClick={() => navigate('/login')} className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><UserPlus className="h-4 w-4" />Já tenho conta</button>
               <button onClick={() => navigate('/request-access')} className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><Shield className="h-4 w-4" />Pedir acesso comercial</button>
+              <button onClick={() => navigate('/help')} className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><HelpCircle className="h-4 w-4" />Ajuda</button>
               <a href="#como-funciona" className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><PlayCircle className="h-4 w-4" />Ver como funciona</a>
             </div>
 
