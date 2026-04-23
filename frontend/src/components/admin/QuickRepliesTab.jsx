@@ -1,7 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import api from '../../services/api'
-import { Plus, XCircle } from 'lucide-react'
+import { Plus, XCircle, Sparkles } from 'lucide-react'
 import clsx from 'clsx'
+
+const VARIABLE_TOKENS = [
+  { label: 'Nome', token: '{{name}}', help: 'Nome do contato' },
+  { label: 'Telefone', token: '{{phone}}', help: 'Telefone do contato' },
+  { label: 'Atendente', token: '{{agent}}', help: 'Nome do agente logado' },
+  { label: 'Setor', token: '{{sector}}', help: 'Nome do setor da conversa' },
+]
 
 function Badge({ children, color = 'gray' }) {
   const colors = {
@@ -73,6 +80,7 @@ export default function QuickRepliesTab({ sectors }) {
     sector_id: '',
     is_active: true,
   })
+  const contentRef = useRef(null)
 
   const load = async (query = search) => {
     try {
@@ -99,6 +107,25 @@ export default function QuickRepliesTab({ sectors }) {
       is_active: true,
     })
     setModal(true)
+  }
+
+  const insertToken = (token) => {
+    const textarea = contentRef.current
+    if (!textarea) {
+      setForm((current) => ({ ...current, content: `${current.content || ''}${token}` }))
+      return
+    }
+
+    const start = textarea.selectionStart ?? form.content.length
+    const end = textarea.selectionEnd ?? form.content.length
+    const next = `${form.content.slice(0, start)}${token}${form.content.slice(end)}`
+    setForm((current) => ({ ...current, content: next }))
+
+    window.requestAnimationFrame(() => {
+      textarea.focus()
+      const caret = start + token.length
+      textarea.setSelectionRange(caret, caret)
+    })
   }
 
   const openEdit = (reply) => {
@@ -230,6 +257,7 @@ export default function QuickRepliesTab({ sectors }) {
             <div>
               <label className="block text-xs text-subtle mb-1.5">Conteudo</label>
               <textarea
+                ref={contentRef}
                 value={form.content}
                 onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                 rows={5}
@@ -237,6 +265,26 @@ export default function QuickRepliesTab({ sectors }) {
                 placeholder="Use variaveis como {{name}}, {{phone}}, {{agent}} e {{sector}}"
                 required
               />
+              <div className="mt-3 rounded-2xl border border-white/5 bg-surface-2/70 p-3">
+                <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-subtle">
+                  <Sparkles className="h-3 w-3" />
+                  Variáveis visuais
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {VARIABLE_TOKENS.map((variable) => (
+                    <button
+                      key={variable.token}
+                      type="button"
+                      onClick={() => insertToken(variable.token)}
+                      className="inline-flex items-center gap-2 rounded-full border border-surface bg-surface-1 px-3 py-1.5 text-[11px] text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                      title={variable.help}
+                    >
+                      <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-300">{variable.label}</span>
+                      <code className="text-[10px] text-muted">{variable.token}</code>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <label className="flex items-center gap-2 text-xs text-subtle">
               <input

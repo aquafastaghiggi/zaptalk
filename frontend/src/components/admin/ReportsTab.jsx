@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../services/api'
-import { CalendarDays, Download, TrendingUp } from 'lucide-react'
+import { CalendarDays, Download, FileSpreadsheet, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 
 function Input({ label, ...props }) {
@@ -129,6 +129,34 @@ export default function ReportsTab() {
     }
   }
 
+  const handleExportExcel = () => {
+    const rows = [
+      ['Metrica', 'Valor'],
+      ['Conversas', summary.total_conversations ?? 0],
+      ['Fila', summary.waiting ?? 0],
+      ['Em atendimento', summary.in_progress ?? 0],
+      ['Finalizadas', summary.finished ?? 0],
+      ['Entrantes', summary.inbound_messages ?? 0],
+      ['Saidas', summary.outbound_messages ?? 0],
+      [],
+      ['Data', 'Qtd', 'Finalizadas', 'Fila', 'Em andamento'],
+      ...(report?.by_day || []).map((item) => [item.date, item.count ?? 0, item.finished ?? 0, item.waiting ?? 0, item.in_progress ?? 0]),
+    ]
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table>${rows
+      .map((row) => `<tr>${row.map((cell) => `<td>${cell ?? ''}</td>`).join('')}</tr>`)
+      .join('')}</table></body></html>`
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'zaptalk-relatorio.xls'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
   const summary = report?.summary || {}
 
   return (
@@ -153,15 +181,25 @@ export default function ReportsTab() {
           </button>
         </div>
         <div className="flex items-end">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exporting}
-            className="w-full flex items-center justify-center gap-1.5 text-xs bg-surface-2 hover:bg-surface-3 border border-surface text-slate-200 px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5" />
-            {exporting ? 'Exportando...' : 'Exportar CSV'}
-          </button>
+          <div className="grid w-full grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center justify-center gap-1.5 text-xs bg-surface-2 hover:bg-surface-3 border border-surface text-slate-200 px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {exporting ? 'Exportando...' : 'CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="flex items-center justify-center gap-1.5 text-xs bg-surface-2 hover:bg-surface-3 border border-surface text-slate-200 px-3 py-2.5 rounded-lg transition-colors"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Excel
+            </button>
+          </div>
         </div>
       </form>
 

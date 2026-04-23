@@ -9,6 +9,7 @@ import { AlertTriangle, BarChart3, Clock3, RefreshCw, Timer, Users, CalendarDays
 import clsx from 'clsx'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import FirstRunTour from '../components/ui/FirstRunTour'
+import NotificationPreferencesButton from '../components/ui/NotificationPreferencesButton'
 
 const DASHBOARD_ONBOARDING_KEY = 'zaptalk:dashboard-onboarding-dismissed'
 
@@ -117,10 +118,44 @@ function DailyBarChart({ items = [] }) {
   )
 }
 
+function InsightBarChart({ items = [], valueKey = 'count', labelKey = 'label', accent = 'brand', detailKey }) {
+  const max = Math.max(...items.map((item) => item?.[valueKey] || 0), 1)
+  const accents = {
+    brand: 'from-brand-600 via-brand-500 to-brand-400',
+    blue: 'from-blue-500 via-blue-400 to-blue-300',
+    green: 'from-emerald-500 via-emerald-400 to-emerald-300',
+    amber: 'from-amber-500 via-amber-400 to-amber-300',
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => {
+        const value = item?.[valueKey] || 0
+        const height = Math.max(18, Math.round((value / max) * 100))
+        return (
+          <div key={item?.id || item?.name || item?.stage || item?.date} className="rounded-2xl border border-white/5 bg-surface-0/35 px-3 py-3">
+            <div className="flex items-end gap-3">
+              <div className="flex h-28 flex-1 items-end rounded-2xl border border-white/5 bg-surface-1 px-2 py-2">
+                <div className={clsx('w-full rounded-xl bg-gradient-to-t shadow-[0_12px_30px_rgba(59,130,246,0.18)]', accents[accent])} style={{ height: `${height}%` }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-white">{item?.[labelKey]}</p>
+                <p className="mt-1 text-[11px] text-muted">{detailKey ? item?.[detailKey] || '—' : item?.detail || '—'}</p>
+                <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function OperationalDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [insightMode, setInsightMode] = useState('volume')
 
   const load = async () => {
     setLoading(true)
@@ -153,6 +188,48 @@ function OperationalDashboard() {
   const bySector = data?.by_sector || []
   const volumeByDay = data?.volume_by_day || []
 
+  const insightData = useMemo(() => {
+    if (insightMode === 'status') {
+      return {
+        title: 'Distribuição por status',
+        subtitle: 'Um recorte rápido de como a operação está agora.',
+        accent: 'amber',
+        items: statusBreakdown.map((item) => ({
+          id: item.status,
+          label: item.label,
+          count: item.count,
+          detail: item.status,
+        })),
+      }
+    }
+
+    if (insightMode === 'agents') {
+      return {
+        title: 'Volume por agente',
+        subtitle: 'Quanto cada agente está concentrando de atendimento.',
+        accent: 'blue',
+        items: byAgent.map((item) => ({
+          id: item.id,
+          label: item.name,
+          count: item.conversations,
+          detail: item.sector || 'Sem setor',
+        })),
+      }
+    }
+
+    return {
+      title: 'Volume por dia',
+      subtitle: 'Uma leitura rápida da entrada de conversas ao longo da semana.',
+      accent: 'brand',
+      items: volumeByDay.map((item) => ({
+        id: item.date,
+        label: item.label,
+        count: item.count,
+        detail: `${item.waiting || 0} fila · ${item.in_progress || 0} andamento`,
+      })),
+    }
+  }, [insightMode, statusBreakdown, byAgent, volumeByDay])
+
   return (
     <div className="relative overflow-hidden border-b border-surface bg-gradient-to-b from-surface-1 via-surface-1/95 to-surface-0 backdrop-blur">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -169,6 +246,7 @@ function OperationalDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <NotificationPreferencesButton />
             <ThemeToggle />
             <button
               onClick={load}
@@ -208,6 +286,44 @@ function OperationalDashboard() {
             hint="Média de encerramento"
           />
         </div>
+
+        <SectionShell
+          title={insightData.title}
+          subtitle={insightData.subtitle}
+          action={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setInsightMode('volume')}
+                className={clsx('rounded-full px-3 py-1.5 text-[11px] transition-colors', insightMode === 'volume' ? 'bg-brand-500/15 text-brand-300' : 'bg-surface-0/70 text-muted hover:text-white')}
+              >
+                Volume
+              </button>
+              <button
+                type="button"
+                onClick={() => setInsightMode('status')}
+                className={clsx('rounded-full px-3 py-1.5 text-[11px] transition-colors', insightMode === 'status' ? 'bg-brand-500/15 text-brand-300' : 'bg-surface-0/70 text-muted hover:text-white')}
+              >
+                Status
+              </button>
+              <button
+                type="button"
+                onClick={() => setInsightMode('agents')}
+                className={clsx('rounded-full px-3 py-1.5 text-[11px] transition-colors', insightMode === 'agents' ? 'bg-brand-500/15 text-brand-300' : 'bg-surface-0/70 text-muted hover:text-white')}
+              >
+                Agentes
+              </button>
+            </div>
+          }
+        >
+          {insightData.items.length === 0 ? (
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-3 py-3 text-xs text-muted">
+              Sem dados para exibir.
+            </div>
+          ) : (
+            <InsightBarChart items={insightData.items} accent={insightMode === 'volume' ? 'brand' : insightMode === 'status' ? 'amber' : 'blue'} labelKey="label" valueKey="count" detailKey="detail" />
+          )}
+        </SectionShell>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <SectionShell

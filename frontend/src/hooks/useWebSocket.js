@@ -62,6 +62,7 @@ export function useWebSocket() {
         notify('Nova mensagem', {
           body: data.message.content || '[Arquivo enviado]',
           tag: `message-${data.conversation_id}`,
+          priority: data.conversation?.priority ?? data.priority ?? data.message?.priority ?? 0,
         })
         break
 
@@ -70,6 +71,7 @@ export function useWebSocket() {
         notify('Nova conversa', {
           body: data.contact?.name || data.contact?.phone || 'Novo atendimento',
           tag: `conversation-${data.id}`,
+          priority: data.priority ?? data.conversation?.priority ?? 0,
         })
         break
 
@@ -94,6 +96,7 @@ export function useWebSocket() {
         }
         notify(eventLabels[event] || 'Atualização', {
           tag: `conversation-${data.conversation_id}`,
+          priority: data.priority ?? data.conversation?.priority ?? 0,
         })
         window.dispatchEvent(
           new CustomEvent('zaptalk:conversation-meta-changed', {

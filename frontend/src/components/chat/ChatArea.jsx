@@ -27,6 +27,7 @@ import {
   FileText,
   Image as ImageIcon,
   MoreHorizontal,
+  Search,
 } from 'lucide-react'
 
 const QUICK_EMOJIS = ['ð', 'ð', 'ð', 'â', 'ð¥', 'ð¬', 'ð', 'â­']
@@ -110,16 +111,18 @@ function MediaPreview({ msg }) {
   )
 }
 
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, highlight = false }) {
   const isOut = msg.direction === 'outbound'
   const time = msg.created_at ? format(new Date(msg.created_at), 'HH:mm') : ''
 
   return (
-    <div className={clsx('flex mb-2', isOut ? 'justify-end' : 'justify-start')}>
+    <div className={clsx('flex mb-2 scroll-mt-24', isOut ? 'justify-end' : 'justify-start')} data-message-id={msg.id}>
       <div
         className={clsx(
-          'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+          'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed transition-shadow',
           isOut ? 'bg-brand-600 text-white rounded-br-sm' : 'bg-surface-3 text-slate-200 rounded-bl-sm'
+          ,
+          highlight && 'ring-2 ring-brand-400/40 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]'
         )}
       >
         <MediaPreview msg={msg} />
@@ -328,12 +331,16 @@ export default function ChatArea() {
   const [quickReplyOpen, setQuickReplyOpen] = useState(false)
   const [attachment, setAttachment] = useState(null)
   const [attachmentPreview, setAttachmentPreview] = useState('')
+  const [attachmentQueue, setAttachmentQueue] = useState([])
+  const [isDragging, setIsDragging] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(true)
+  const [messageSearch, setMessageSearch] = useState('')
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
   const actionsMenuRef = useRef(null)
+  const messageSearchRef = useRef(null)
 
   const {
     activeId,
@@ -367,6 +374,18 @@ export default function ChatArea() {
       )
     })
   }, [quickReplies, quickSearch])
+
+  const normalizedMessageSearch = messageSearch.trim().toLowerCase()
+  const matchedMessages = useMemo(() => {
+    if (!normalizedMessageSearch) return []
+    return msgs.filter((msg) => {
+      const content = [msg.content, msg.message_type, msg.direction]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return content.includes(normalizedMessageSearch)
+    })
+  }, [msgs, normalizedMessageSearch])
 
   const reloadMeta = async () => {
     if (!activeId) return
@@ -450,6 +469,17 @@ export default function ChatArea() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs.length])
+
+  useEffect(() => {
+    if (!normalizedMessageSearch || matchedMessages.length === 0) return
+    const first = matchedMessages[0]
+    window.requestAnimationFrame(() => {
+      const target = document.querySelector(`[data-message-id="${first.id}"]`)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+  }, [normalizedMessageSearch, matchedMessages])
 
   useEffect(() => {
     if (!actionsOpen) return undefined
@@ -561,11 +591,35 @@ export default function ChatArea() {
     }
   }, [attachmentPreview])
 
+  useEffect(() => {
+    if (!activeId) return
+    setMessageSearch('')
+  }, [activeId])
+
   const clearAttachment = () => {
     if (attachmentPreview) URL.revokeObjectURL(attachmentPreview)
     setAttachment(null)
     setAttachmentPreview('')
+    setAttachmentQueue([])
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const addAttachmentFiles = (files) => {
+    const incoming = Array.from(files || []).filter(Boolean)
+    if (incoming.length === 0) return
+
+    const [first, ...rest] = incoming
+    if (!attachment) {
+      if (attachmentPreview) URL.revokeObjectURL(attachmentPreview)
+      setAttachment(first)
+      setAttachmentPreview(first.type?.startsWith('image/') || first.type === 'application/pdf' ? URL.createObjectURL(first) : '')
+      if (rest.length > 0) {
+        setAttachmentQueue((current) => [...current, ...rest])
+      }
+      return
+    }
+
+    setAttachmentQueue((current) => [...current, ...incoming])
   }
 
   const handleSend = async (e) => {
@@ -591,11 +645,14 @@ export default function ChatArea() {
       return
     }
 
-    if (!text.trim() && !attachment) return
+    if (!text.trim() && !attachment && attachmentQueue.length === 0) return
     setSending(true)
     try {
-      if (attachment) {
-        await sendAttachment(activeId, attachment, text.trim())
+      const files = attachment ? [attachment, ...attachmentQueue] : attachmentQueue
+      if (files.length > 0) {
+        for (let index = 0; index < files.length; index += 1) {
+          await sendAttachment(activeId, files[index], index === 0 ? text.trim() : '')
+        }
         clearAttachment()
       } else {
         await sendMessage(activeId, text.trim())
@@ -935,11 +992,23 @@ export default function ChatArea() {
   }
 
   const handleFileChange = (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (attachmentPreview) URL.revokeObjectURL(attachmentPreview)
-    setAttachment(file)
-    setAttachmentPreview(URL.createObjectURL(file))
+    addAttachmentFiles(event.target.files)
+    event.target.value = ''
+  }
+
+  const handleDropFiles = (event) => {
+    event.preventDefault()
+    setIsDragging(false)
+    addAttachmentFiles(event.dataTransfer?.files)
+  }
+
+  const removeQueuedAttachment = (index) => {
+    setAttachmentQueue((current) => current.filter((_, currentIndex) => currentIndex !== index))
+  }
+
+  const clearMessageSearch = () => {
+    setMessageSearch('')
+    messageSearchRef.current?.focus()
   }
 
     if (!activeId) return <EmptyState />
@@ -1084,17 +1153,77 @@ export default function ChatArea() {
         )}
 
         <div className="flex min-h-0 flex-1 flex-col">
+          <div className="border-b border-surface bg-surface-1/55 px-6 py-3" data-tour="chat-message-search">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[16rem] flex-1">
+                <input
+                  ref={messageSearchRef}
+                  value={messageSearch}
+                  onChange={(e) => setMessageSearch(e.target.value)}
+                  placeholder="Buscar dentro da conversa..."
+                  className="w-full rounded-xl border border-surface bg-surface-2 px-3 py-2 pl-9 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">
+                  <Search className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              {messageSearch && (
+                <button
+                  type="button"
+                  onClick={clearMessageSearch}
+                  className="rounded-lg border border-surface bg-surface-2 px-3 py-2 text-xs text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"
+                >
+                  Limpar
+                </button>
+              )}
+              <span className="text-[11px] text-muted">
+                {normalizedMessageSearch
+                  ? `${matchedMessages.length} resultado(s) nesta conversa`
+                  : 'Digite para localizar mensagens, notas e arquivos'}
+              </span>
+            </div>
+          </div>
+
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
             {msgs.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-muted">Nenhuma mensagem ainda</div>
             ) : (
-              msgs.map((msg) => <MessageBubble key={msg.id} msg={msg} />)
+              msgs.map((msg) => (
+                <MessageBubble
+                  key={msg.id}
+                  msg={msg}
+                  highlight={normalizedMessageSearch ? [msg.content, msg.message_type, msg.direction].filter(Boolean).join(' ').toLowerCase().includes(normalizedMessageSearch) : false}
+                />
+              ))
             )}
             <div ref={bottomRef} />
           </div>
 
           <div className="border-t border-surface bg-surface-1/85 px-6 py-4 backdrop-blur" data-tour="chat-composer">
-            <div className="rounded-3xl border border-surface bg-gradient-to-br from-surface-2 via-surface-2 to-surface-1 p-4 shadow-[0_1px_0_rgba(255,255,255,0.02),0_16px_40px_rgba(0,0,0,0.12)]">
+            <div
+              className={clsx(
+                'rounded-3xl border bg-gradient-to-br from-surface-2 via-surface-2 to-surface-1 p-4 shadow-[0_1px_0_rgba(255,255,255,0.02),0_16px_40px_rgba(0,0,0,0.12)] transition-colors',
+                isDragging ? 'border-brand-500/60 ring-2 ring-brand-500/20' : 'border-surface'
+              )}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setIsDragging(true)
+              }}
+              onDragEnter={(event) => {
+                event.preventDefault()
+                setIsDragging(true)
+              }}
+              onDragLeave={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) return
+                setIsDragging(false)
+              }}
+              onDrop={handleDropFiles}
+            >
+              {isDragging && (
+                <div className="mb-3 rounded-2xl border border-brand-500/20 bg-brand-500/10 px-4 py-3 text-xs text-brand-200">
+                  Solte arquivos aqui para anexar à conversa
+                </div>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex gap-2">
                   <ComposerModeButton
@@ -1194,7 +1323,7 @@ export default function ChatArea() {
                     Anexo
                   </button>
 
-                  <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} />
+                  <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} multiple />
                 </div>
               </div>
 
@@ -1229,6 +1358,33 @@ export default function ChatArea() {
                       Preview de PDF pronto para envio
                     </div>
                   )}
+                </div>
+              )}
+
+              {attachmentQueue.length > 0 && (
+                <div className="mt-3 rounded-2xl border border-white/5 bg-surface-2/70 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-white">Arquivos adicionais</p>
+                    <p className="text-[11px] text-muted">{attachmentQueue.length} na fila</p>
+                  </div>
+                  <div className="space-y-2">
+                    {attachmentQueue.map((file, index) => (
+                      <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-surface bg-surface-1 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs text-slate-200">{file.name}</p>
+                          <p className="text-[11px] text-muted">{file.type || 'arquivo'}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeQueuedAttachment(index)}
+                          className="text-muted transition-colors hover:text-red-400"
+                          title="Remover da fila"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
