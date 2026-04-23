@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     AI_MAX_CONTEXT_MESSAGES: int = 12
     AI_MAX_CONTEXT_NOTES: int = 8
     AI_MAX_CONTEXT_TRANSFERS: int = 8
+    PUBLIC_SIGNUP_ENABLED: bool = True
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     ALGORITHM: str = "HS256"

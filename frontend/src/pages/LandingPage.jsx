@@ -65,7 +65,7 @@ export default function LandingPage() {
 
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/login')} className="rounded-xl border border-surface bg-surface-1 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white">Entrar</button>
-          <button onClick={() => navigate('/login')} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-500">Comecar agora <ArrowRight className="h-4 w-4" /></button>
+          <button onClick={() => navigate('/sign-up')} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-500">Criar conta <ArrowRight className="h-4 w-4" /></button>
         </div>
       </header>
 
@@ -82,8 +82,9 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <button onClick={() => navigate('/login')} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-500">Entrar no sistema <ArrowRight className="h-4 w-4" /></button>
-              <button onClick={() => navigate('/request-access')} className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><UserPlus className="h-4 w-4" />Solicitar acesso</button>
+              <button onClick={() => navigate('/sign-up')} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-500">Criar conta <ArrowRight className="h-4 w-4" /></button>
+              <button onClick={() => navigate('/login')} className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><UserPlus className="h-4 w-4" />Já tenho conta</button>
+              <button onClick={() => navigate('/request-access')} className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><Shield className="h-4 w-4" />Pedir acesso comercial</button>
               <a href="#como-funciona" className="inline-flex items-center gap-2 rounded-xl border border-surface bg-surface-1 px-5 py-3 text-sm text-slate-300 transition-colors hover:border-brand-500/30 hover:text-white"><PlayCircle className="h-4 w-4" />Ver como funciona</a>
             </div>
 

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_admin
+from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.db.database import get_db
 from app.models.access_request import AccessRequest, AccessRequestStatus
@@ -45,6 +46,15 @@ async def register(
     current_user: User = Depends(require_admin),
 ):
     """Registro protegido para administradores."""
+    user, temp_password = await create_user(db, data)
+    return UserCreatedResponse(user=user, temp_password=temp_password)
+
+
+@public_router.post("/signup", response_model=UserCreatedResponse, status_code=201)
+async def public_signup(data: UserCreate, db: AsyncSession = Depends(get_db)):
+    if not settings.PUBLIC_SIGNUP_ENABLED:
+        raise HTTPException(status_code=403, detail="Cadastro p?blico desativado")
+
     user, temp_password = await create_user(db, data)
     return UserCreatedResponse(user=user, temp_password=temp_password)
 
@@ -97,7 +107,7 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
-        return ResetPasswordResponse(message="Se o e-mail existir, enviaremos o link de redefiniÁ„o.")
+        return ResetPasswordResponse(message="Se o e-mail existir, enviaremos o link de redefini√ß√£o.")
 
     token = secrets.token_urlsafe(32)
     reset_token = PasswordResetToken(
@@ -109,7 +119,7 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     db.add(reset_token)
     await db.flush()
     return ResetPasswordResponse(
-        message="Link de redefiniÁ„o gerado com sucesso.",
+        message="Link de redefini√ß√£o gerado com sucesso.",
         reset_url=f"/reset-password/{token}",
     )
 
@@ -119,16 +129,16 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     result = await db.execute(select(PasswordResetToken).where(PasswordResetToken.token == body.token))
     token = result.scalar_one_or_none()
     if not token:
-        raise HTTPException(status_code=404, detail="Token de redefiniÁ„o n„o encontrado")
+        raise HTTPException(status_code=404, detail="Token de redefini√ß√£o n√£o encontrado")
     if token.used_at is not None:
-        raise HTTPException(status_code=400, detail="Token j· utilizado")
+        raise HTTPException(status_code=400, detail="Token j√° utilizado")
     if token.expires_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Token expirado")
 
     user_result = await db.execute(select(User).where(User.id == token.user_id))
     user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="Usu·rio n„o encontrado")
+        raise HTTPException(status_code=404, detail="Usu√°rio n√£o encontrado")
 
     user.hashed_password = get_password_hash(body.new_password)
     user.must_change_password = False
@@ -172,7 +182,7 @@ async def update_access_request(
     result = await db.execute(select(AccessRequest).where(AccessRequest.id == request_id))
     request = result.scalar_one_or_none()
     if not request:
-        raise HTTPException(status_code=404, detail="SolicitaÁ„o n„o encontrada")
+        raise HTTPException(status_code=404, detail="Solicita√ß√£o n√£o encontrada")
 
     request.status = body.status
     await db.flush()
